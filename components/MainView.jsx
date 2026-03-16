@@ -6,20 +6,21 @@
 
 import { useState, useEffect } from "react";
 
-import FadeIn from "./FadeIn";
-import DinnerMenu from "./DinnerMenu";
-import MainViewHeader from "./MainViewHeader";
-import TabBar from "./TabBar";
-import ArchiveTab from "./ArchiveTab";
-import NotesTab from "./NotesTab";
-import AddMenuTab from "./AddMenuTab";
+import FadeIn from "./layout/FadeIn";
+import DinnerMenu from "./menu/DinnerMenu";
+import MainViewHeader from "./layout/MainViewHeader";
+import TabBar from "./layout/TabBar";
+import ArchiveTab from "./menu/ArchiveTab";
+import NotesTab from "./notes/NotesTab";
+import AddMenuTab from "./menu/AddMenuTab";
 
-import { colors } from "../data/theme";
-import staticCurrentMenu from "../data/currentMenu";
-import archivedMenus from "../data/archivedMenus";
-import { mainViewTabs, TAB_IDS } from "../data/mainViewTabs";
-import { API_BASE } from "../src/config";
+import { colors } from "../data/config/theme";
+import staticCurrentMenu from "../data/fallback/currentMenu";
+import archivedMenus from "../data/fallback/archivedMenus";
+import { mainViewTabs, TAB_IDS } from "../data/config/tabs";
+import { apiFetch } from "../src/api";
 import { useMusic } from "../src/context/MusicContext";
+import { canAddMenu, canEditMenu } from "../data/config/roles";
 
 /* Main view shell layout and background; only used by this component. */
 const shellStyle = {
@@ -41,8 +42,7 @@ function MainView({ userCode }) {
   /* Past menus for Archive tab: from API; fallback to static archivedMenus if API fails. */
   const [archiveList, setArchiveList] = useState(archivedMenus);
   const refetchCurrent = () => {
-    fetch(`${API_BASE}/api/menus/current`)
-      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+    apiFetch("/api/menus/current")
       .then((data) => setCurrentMenu(data))
       .catch(() => {});
   };
@@ -50,8 +50,7 @@ function MainView({ userCode }) {
     refetchCurrent();
   }, []);
   const refetchArchive = () => {
-    fetch(`${API_BASE}/api/menus/archive`)
-      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+    apiFetch("/api/menus/archive")
       .then((data) => setArchiveList(Array.isArray(data) ? data : []))
       .catch(() => {});
   };
@@ -64,7 +63,7 @@ function MainView({ userCode }) {
   }, [tab, setTrack]);
 
   /* Tabs to show: base tabs; add "Add menu" when userCode is vivian. */
-  const tabs = userCode === "vivian" ? [...mainViewTabs, { id: "add_menu", label: "Add menu", cn: "新增" }] : mainViewTabs;
+  const tabs = canAddMenu(userCode) ? [...mainViewTabs, { id: TAB_IDS.ADD_MENU, label: "Add menu", cn: "新増" }] : mainViewTabs;
 
   /* When vivian clicks Edit on an archive row, we open Add menu tab with this menu. */
   const [editingMenu, setEditingMenu] = useState(null);
@@ -87,6 +86,13 @@ function MainView({ userCode }) {
       return isNaN(d.getTime()) || d <= today;
     })
     .sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
+
+  const upcomingMenu = Array.from(byDate.values())
+    .filter((m) => {
+      const d = new Date(m.date);
+      return !isNaN(d.getTime()) && d > today;
+    })
+    .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
 
   const handleAddMenuSuccess = (menu, wasEditing) => {
     if (wasEditing) {
@@ -132,7 +138,7 @@ function MainView({ userCode }) {
               currentMenu={currentMenu}
               userCode={userCode}
               onSelectMenu={() => setTab(TAB_IDS.MENU)}
-              onEditMenu={(menu) => { setEditingMenu(menu); setTab("add_menu"); }}
+              onEditMenu={(menu) => { setEditingMenu(menu); setTab(TAB_IDS.ADD_MENU); }}
             />
           </FadeIn>
         )}
@@ -140,11 +146,11 @@ function MainView({ userCode }) {
         {/* Notes tab: chef note, guest review, and next reservation. We only pass currentMenu.date; NotesTab uses it to look up note and review. */}
         {tab === TAB_IDS.NOTES && (
           <FadeIn delay={300}>
-            <NotesTab menuDates={allMenusForArchive.map((m) => m.date)} userCode={userCode} />
+            <NotesTab menuDates={allMenusForArchive.map((m) => m.date)} userCode={userCode} upcomingMenuDate={upcomingMenu?.date ?? null} />
           </FadeIn>
         )}
 
-        {tab === "add_menu" && userCode === "vivian" && (
+        {tab === TAB_IDS.ADD_MENU && canAddMenu(userCode) && (
           <FadeIn delay={300}>
             <AddMenuTab
               key={editingMenu?.id ?? "new"}

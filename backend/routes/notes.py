@@ -1,31 +1,18 @@
 """Notes API: chef notes (vivian write), VIP reviews (vlad write). GET is public."""
 from datetime import datetime
-from typing import Optional
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import ChefNote, VipReview
+from backend.auth import require_vivian, require_vlad
+from backend.schemas import NoteIn, NoteOut, ReviewIn, ReviewOut, DeleteIn, DeleteOut
 
 router = APIRouter(prefix="/api/notes", tags=["notes"])
 
 
-def _require_vivian(x_reservation_code: Optional[str] = Header(default=None, alias="X-Reservation-Code")):
-    code = (x_reservation_code or "").strip().lower()
-    if code != "vivian":
-        raise HTTPException(status_code=403, detail="Forbidden")
-    return code
-
-
-def _require_vlad(x_reservation_code: Optional[str] = Header(default=None, alias="X-Reservation-Code")):
-    code = (x_reservation_code or "").strip().lower()
-    if code != "vlad":
-        raise HTTPException(status_code=403, detail="Forbidden")
-    return code
-
-
-@router.get("/chef")
+@router.get("/chef", response_model=NoteOut)
 def get_chef_note(
     menuDate: str = Query(..., alias="menuDate"),
     db: Session = Depends(get_db),
@@ -34,20 +21,20 @@ def get_chef_note(
     row = db.query(ChefNote).filter(ChefNote.menu_date == menuDate).first()
     if not row:
         raise HTTPException(status_code=404, detail="No chef note for this date")
-    return {"menuDate": row.menu_date, "note": row.note or ""}
+    return NoteOut(menuDate=row.menu_date, note=row.note or "")
 
 
-@router.put("/chef")
+@router.put("/chef", response_model=NoteOut)
 def put_chef_note(
-    body: dict = Body(...),
+    body: NoteIn,
     db: Session = Depends(get_db),
-    _: str = Depends(_require_vivian),
+    _: str = Depends(require_vivian),
 ):
     """Upsert chef note by menu date. Requires X-Reservation-Code: vivian."""
-    menu_date = (body.get("menuDate") or "").strip()
+    menu_date = body.menuDate.strip()
     if not menu_date:
         raise HTTPException(status_code=400, detail="menuDate is required")
-    note = (body.get("note") or "").strip()
+    note = body.note.strip()
     row = db.query(ChefNote).filter(ChefNote.menu_date == menu_date).first()
     if row:
         row.note = note
@@ -59,17 +46,17 @@ def put_chef_note(
         db.add(row)
         db.commit()
         db.refresh(row)
-    return {"menuDate": row.menu_date, "note": row.note or ""}
+    return NoteOut(menuDate=row.menu_date, note=row.note or "")
 
 
-@router.delete("/chef")
+@router.delete("/chef", response_model=DeleteOut)
 def delete_chef_note(
-    body: dict = Body(...),
+    body: DeleteIn,
     db: Session = Depends(get_db),
-    _: str = Depends(_require_vivian),
+    _: str = Depends(require_vivian),
 ):
     """Delete chef note for a menu date. Requires X-Reservation-Code: vivian."""
-    menu_date = (body.get("menuDate") or "").strip()
+    menu_date = body.menuDate.strip()
     if not menu_date:
         raise HTTPException(status_code=400, detail="menuDate is required")
     row = db.query(ChefNote).filter(ChefNote.menu_date == menu_date).first()
@@ -77,10 +64,10 @@ def delete_chef_note(
         raise HTTPException(status_code=404, detail="No chef note for this date")
     db.delete(row)
     db.commit()
-    return {"deleted": True}
+    return DeleteOut()
 
 
-@router.get("/vip-review")
+@router.get("/vip-review", response_model=ReviewOut)
 def get_vip_review(
     menuDate: str = Query(..., alias="menuDate"),
     db: Session = Depends(get_db),
@@ -89,20 +76,20 @@ def get_vip_review(
     row = db.query(VipReview).filter(VipReview.menu_date == menuDate).first()
     if not row:
         raise HTTPException(status_code=404, detail="No VIP review for this date")
-    return {"menuDate": row.menu_date, "review": row.review or ""}
+    return ReviewOut(menuDate=row.menu_date, review=row.review or "")
 
 
-@router.put("/vip-review")
+@router.put("/vip-review", response_model=ReviewOut)
 def put_vip_review(
-    body: dict = Body(...),
+    body: ReviewIn,
     db: Session = Depends(get_db),
-    _: str = Depends(_require_vlad),
+    _: str = Depends(require_vlad),
 ):
     """Upsert VIP review by menu date. Requires X-Reservation-Code: vlad."""
-    menu_date = (body.get("menuDate") or "").strip()
+    menu_date = body.menuDate.strip()
     if not menu_date:
         raise HTTPException(status_code=400, detail="menuDate is required")
-    review = (body.get("review") or "").strip()
+    review = body.review.strip()
     row = db.query(VipReview).filter(VipReview.menu_date == menu_date).first()
     if row:
         row.review = review
@@ -114,17 +101,17 @@ def put_vip_review(
         db.add(row)
         db.commit()
         db.refresh(row)
-    return {"menuDate": row.menu_date, "review": row.review or ""}
+    return ReviewOut(menuDate=row.menu_date, review=row.review or "")
 
 
-@router.delete("/vip-review")
+@router.delete("/vip-review", response_model=DeleteOut)
 def delete_vip_review(
-    body: dict = Body(...),
+    body: DeleteIn,
     db: Session = Depends(get_db),
-    _: str = Depends(_require_vlad),
+    _: str = Depends(require_vlad),
 ):
     """Delete VIP review for a menu date. Requires X-Reservation-Code: vlad."""
-    menu_date = (body.get("menuDate") or "").strip()
+    menu_date = body.menuDate.strip()
     if not menu_date:
         raise HTTPException(status_code=400, detail="menuDate is required")
     row = db.query(VipReview).filter(VipReview.menu_date == menu_date).first()
@@ -132,4 +119,4 @@ def delete_vip_review(
         raise HTTPException(status_code=404, detail="No VIP review for this date")
     db.delete(row)
     db.commit()
-    return {"deleted": True}
+    return DeleteOut()

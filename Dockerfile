@@ -1,21 +1,16 @@
-FROM python:3.11-slim
-
-RUN apt-get update && apt-get install -y curl && \
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-
+FROM node:20-slim AS frontend
 WORKDIR /app
-
-COPY backend/requirements.txt backend/requirements.txt
-RUN pip install --no-cache-dir -r backend/requirements.txt
-
 COPY package.json package-lock.json ./
 RUN npm ci
-
 COPY . .
 RUN npm run build
 
+FROM python:3.11-slim
+WORKDIR /app
+COPY backend/requirements.txt backend/requirements.txt
+RUN pip install --no-cache-dir -r backend/requirements.txt
+COPY backend/ backend/
+COPY data/ data/
+COPY --from=frontend /app/dist dist/
 EXPOSE 10000
-
-CMD python -m backend.seed_menu && uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-10000}
+CMD python -m backend.seed && uvicorn backend.app:app --host 0.0.0.0 --port ${PORT:-10000}
