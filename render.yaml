@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: cafe307
+    runtime: python
+    repo: https://github.com/vyzheng/cafe307
+    buildCommand: pip install -r backend/requirements.txt && npm install && npm run build
+    startCommand: python -m backend.seed_menu && uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: NODE_VERSION
+        value: "20"
+      - key: DATA_DIR
+        value: /data
+      - key: PRODUCTION_URL
+        value: https://cafe307.com
+    disk:
+      name: cafe307-data
+      mountPath: /data
+      sizeGB: 1
