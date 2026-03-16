@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cafe 307 — User flow</title>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true, theme: 'neutral' });
+  </script>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 2rem; max-width: 900px; margin: 0 auto; }
+    h1 { margin-bottom: 0.5rem; }
+    p { color: #555; margin-bottom: 2rem; }
+    .mermaid { margin: 2rem 0; }
+  </style>
+</head>
+<body>
+  <h1>Cafe 307 — User flow</h1>
+  <p>Decision tree: login, tabs, and content.</p>
+
+  <pre class="mermaid">
+flowchart TB
+    Start([App load]) --> LoginScreen["LoginPage - enter reservation code"]
+    LoginScreen --> Submit[Submit or Enter]
+    Submit --> ValidCode{"Code valid?"}
+    ValidCode -->|No| ShowError["Fade in No reservation found"]
+    ShowError --> HideError["Error hides after delay"]
+    HideError --> LoginScreen
+    ValidCode -->|Yes| FadeOut[Fade out login]
+    FadeOut --> ShowMain[Fade in MainView]
+    ShowMain --> TabBar["Tab bar - Menu, Archive, Notes"]
+    TabBar --> ClickMenu[Click Menu tab]
+    TabBar --> ClickArchive[Click Archive tab]
+    TabBar --> ClickNotes[Click Notes tab]
+    ClickMenu --> MenuContent[Fade in current menu]
+    MenuContent --> DinnerMenuCard["DinnerMenu - date, courses, items"]
+    ClickArchive --> ArchiveContent[Fade in archive list]
+    ArchiveContent --> PastMenus["Historical menus list"]
+    PastMenus --> ClickItem[Click a menu]
+    ClickItem --> ClickMenu
+    ClickNotes --> NotesContent[Fade in notes]
+    NotesContent --> ChefNotes[Chef note]
+    NotesContent --> GuestReview[VIP review]
+    NotesContent --> NextRes[Next reservation block]
+  </pre>
+</body>
+</html>

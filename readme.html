@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cafe 307 — Tutorial</title>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true, theme: 'neutral' });
+  </script>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 2rem; max-width: 720px; margin: 0 auto; line-height: 1.6; }
+    h1 { margin-top: 2rem; margin-bottom: 0.25rem; }
+    h2 { margin-top: 2.5rem; margin-bottom: 0.5rem; font-size: 1.25rem; }
+    h3 { margin-top: 1.5rem; margin-bottom: 0.5rem; font-size: 1.1rem; }
+    p { margin-bottom: 1rem; color: #333; }
+    code { background: #f4f4f4; padding: 0.15em 0.4em; border-radius: 4px; font-size: 0.9em; }
+    .mermaid { margin: 2rem 0; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+    th, td { border: 1px solid #ddd; padding: 0.5rem 0.75rem; text-align: left; }
+    th { background: #f8f8f8; }
+    ul { margin-bottom: 1rem; padding-left: 1.5rem; }
+    .intro { color: #555; margin-bottom: 2rem; }
+  </style>
+</head>
+<body>
+
+  <h1>Cafe 307</h1>
+  <p class="intro">Private dining menu app. Enter a reservation code to view the dinner menu, archive of past menus, and chef/guest notes.</p>
+
+  <h2>Tech stack</h2>
+  <ul>
+    <li>React</li>
+    <li>Vite</li>
+    <li>prop-types</li>
+  </ul>
+
+  <h2>How to run</h2>
+  <p><code>npm install</code> then <code>npm run dev</code>. Build for production with <code>npm run build</code>.</p>
+  <p>Valid login codes are in <code>data/loginConstants.js</code> (e.g. vlad, mushu, vivian, gelato, caramel, tangyuan).</p>
+
+  <h2>Tutorial: How the app works</h2>
+  <p>This walkthrough is for anyone new to React. We'll go through the app screen by screen and point to the exact files and ideas that make it work. You'll see how <strong>state</strong>, <strong>components</strong>, and <strong>props</strong> work in a real app.</p>
+  <p>The diagram below shows the path a user can take: from the login screen, to the main dashboard, and then to the Menu, Archive, or Notes tab.</p>
+
+  <h3>User flow (overview)</h3>
+  <pre class="mermaid">
+flowchart TB
+  Start([App load]) --> LoginScreen["LoginPage - enter reservation code"]
+  LoginScreen --> Submit[Submit or Enter]
+  Submit --> ValidCode{"Code valid?"}
+  ValidCode -->|No| ShowError["Fade in No reservation found"]
+  ShowError --> HideError["Error hides after delay"]
+  HideError --> LoginScreen
+  ValidCode -->|Yes| FadeOut[Fade out login]
+  FadeOut --> ShowMain[Fade in MainView]
+  ShowMain --> TabBar["Tab bar - Menu, Archive, Notes"]
+  TabBar --> ClickMenu[Click Menu tab]
+  TabBar --> ClickArchive[Click Archive tab]
+  TabBar --> ClickNotes[Click Notes tab]
+  ClickMenu --> MenuContent[Fade in current menu]
+  MenuContent --> DinnerMenuCard["DinnerMenu - date, courses, items"]
+  ClickArchive --> ArchiveContent[Fade in archive list]
+  ArchiveContent --> PastMenus["Historical menus list"]
+  PastMenus --> ClickItem[Click a menu]
+  ClickItem --> ClickMenu
+  ClickNotes --> NotesContent[Fade in notes]
+  NotesContent --> ChefNotes[Chef note]
+  NotesContent --> GuestReview[VIP review]
+  NotesContent --> NextRes[Next reservation block]
+  </pre>
+
+  <h3>1. Understanding the login page</h3>
+  <p>When you first open the app, you see a single input asking for a "reservation code" and an Enter button. If you type a wrong code and press Enter, the message "No reservation found" appears for a few seconds, then disappears.</p>
+  <p>Here's how that works in the code. In React, <strong>state</strong> is data that can change over time; when it changes, the screen updates. The top-level component lives in <code>src/cafe307.jsx</code>. It keeps a piece of state called <code>loggedIn</code>. When <code>loggedIn</code> is false, the app shows the login screen. When it becomes true, the app shows the main dashboard instead. So "logging in" simply means: something sets <code>loggedIn</code> to true. That something is a function called <code>handleSubmitLogin</code>. When you enter a valid code, the login screen calls this function (which the parent passed down as a prop), and the parent then sets <code>loggedIn</code> to true after a short fade. You can see the fade duration in <code>data/animationConstants.js</code> under <code>LOGIN_FADE_DURATION_MS</code>.</p>
+  <p>The login screen itself is its own component in <code>components/LoginPage.jsx</code>. That component keeps two pieces of state: <code>code</code> (whatever you typed) and <code>err</code> (whether to show the "No reservation found" message). When you click Enter or the button, a function called <code>handleSubmit</code> runs. It checks whether the trimmed, lowercased <code>code</code> is in a list of valid codes that come from <code>data/loginConstants.js</code> (<code>VALID_LOGIN_CODES</code>). If it is, the component calls <code>onLogin()</code>, which is the parent's <code>handleSubmitLogin</code>. If it isn't, it sets <code>err</code> to true so the error message appears, and then after a few seconds (controlled by <code>ERROR_DISPLAY_MS</code> in the same file) it sets <code>err</code> back to false so the message goes away.</p>
+  <p>A nice way to see that this is all wired up is to open <code>data/loginConstants.js</code>, add or change one of the valid codes, and try logging in again. You can also change <code>ERROR_DISPLAY_MS</code> to see the error message stay on screen for a longer or shorter time.</p>
+
+  <h3>2. Understanding the menu dashboard (MainView)</h3>
+  <p>After you log in, you see one screen with a header ("Cafe 307", "Welcome back"), three tabs (Menu, Archive, Notes), and a content area that changes when you click a tab. This whole screen is one component called MainView, which lives in <code>components/MainView.jsx</code>.</p>
+  <p>MainView uses a single piece of state called <code>tab</code>. Its value is one of the strings "menu", "archive", or "notes". The three tab buttons each call <code>setTab</code> with the right id when you click them. The content below the tabs is chosen with simple conditionals: if <code>tab === "menu"</code> the app shows the current dinner menu; if <code>tab === "archive"</code> it shows the list of past menus; if <code>tab === "notes"</code> it shows the chef note, guest review, and next reservation. So there aren't three separate "pages"—there's one component that shows different content depending on the value of <code>tab</code>. This is a common pattern in React: one state variable drives what the user sees.</p>
+  <p>If you're new to React, it helps to open <code>components/MainView.jsx</code> and find where <code>tab</code> is defined with <code>useState</code>, and then search for the three places that check <code>tab === "menu"</code>, <code>tab === "archive"</code>, and <code>tab === "notes"</code>. You'll see how that one state controls all three views.</p>
+
+  <h3>3. What happens when you click the Archive tab</h3>
+  <p>When you click the Archive tab, you see a list titled "Past Menus." Each row shows a menu's date, lunar date, label, and a short summary of dishes. If you click a row, the app switches you back to the Menu tab.</p>
+  <p>That list is built in <code>components/MainView.jsx</code> inside the block that runs when <code>tab === "archive"</code>. The list comes from a variable called <code>allMenusForArchive</code>, which is defined at the top of MainView as the current menu plus the list of past menus: <code>[currentMenu, ...archivedMenus]</code>. So the archive shows the one "featured" menu and any older menus. Each row displays the menu's date, lunar date, label, and a summary line that's made by taking all the courses and their items and joining the Chinese dish names with a dot. The row has an <code>onClick</code> handler that simply calls <code>setTab("menu")</code>, so clicking a row doesn't load that menu's full detail yet—it just switches the tab back to Menu, which always shows the same featured menu. The featured menu is defined in <code>data/currentMenu.js</code>, and the list of past menus is in <code>data/archivedMenus.js</code> (right now that list is empty, so you only see the current menu in the archive).</p>
+  <p>To get a feel for how the data and UI are connected, you can add a second menu object to <code>data/archivedMenus.js</code> using the same shape as the menu in <code>data/currentMenu.js</code>. When you open the Archive tab again, you should see your new menu in the list.</p>
+
+  <h3>4. What happens when you click the Notes tab</h3>
+  <p>When you click the Notes tab, you see three blocks: a Chef's note, a Guest review, and a "Next reservation" section (e.g. Thursday, party size, "always confirmed").</p>
+  <p>All of that is still inside <code>components/MainView.jsx</code>, in the block that runs when <code>tab === "notes"</code>. The chef's note text comes from a function called <code>getChefNote(currentMenu.date)</code>, which is imported from <code>data/chefsNotes.js</code>. The guest review comes from <code>getVipReview(currentMenu.date)</code>, which is imported from <code>data/vipReviews.js</code>. The "Next reservation" part is static text for now. So the Notes tab doesn't store notes inside the menu objects; instead, notes and reviews are stored in separate files and linked to a menu by its date. Whenever you're on the Notes tab, the app shows the chef note and VIP review for <strong>the current menu's date</strong> (the date of the featured menu in <code>data/currentMenu.js</code>).</p>
+  <p>In <code>data/chefsNotes.js</code> you'll find an array of objects with <code>menuDate</code> and <code>note</code>, and a function <code>getChefNote(menuDate)</code> that looks up the note for that date. <code>data/vipReviews.js</code> is similar: objects with <code>menuDate</code> and <code>review</code>, and a function <code>getVipReview(menuDate)</code>. If you add another chef note with a different <code>menuDate</code>, you'll see that the Notes tab still only shows the note that matches the current menu's date. Later you could add state for "which menu is selected" (e.g. from the Archive) and pass that menu's date into <code>getChefNote</code> and <code>getVipReview</code> so the Notes tab can show notes for the menu the user picked.</p>
+
+  <h3>5. Refactoring with FastAPI (same UI, backend data)</h3>
+  <p>Right now all the data (menus, chef notes, VIP reviews, valid login codes) lives in JavaScript files under the <code>data/</code> folder and is bundled with the app. You can keep the same React UI and user flows and instead load that data from a backend. This section gives you a simple way to think about that using FastAPI.</p>
+  <p>You would expose the same information as HTTP endpoints. For example: a POST endpoint to validate the login code (e.g. <code>POST /auth/validate</code> or <code>POST /login</code> with a body like <code>{ "code": "vivian" }</code> returning 200 or 401); a GET endpoint for the current menu (e.g. <code>GET /menus/current</code> returning one menu object); a GET for the list of past menus (e.g. <code>GET /menus/archive</code>); and GETs for the chef note and VIP review by menu date (e.g. <code>GET /notes/chef?menu_date=...</code> and <code>GET /reviews/vip?menu_date=...</code>). Your React app would then call these endpoints (e.g. with <code>fetch</code>) instead of importing from the <code>data/</code> files.</p>
+  <p>On the FastAPI side, you'd define models that match your menu and note shapes, implement those routes (using in-memory data or a database), and enable CORS so the browser allows requests from your React dev server (e.g. <code>http://localhost:5173</code>). On the React side, you'd add a small layer (e.g. functions in <code>api/menus.js</code>, <code>api/notes.js</code>) that call <code>fetch</code> and return the JSON. In your components, you'd stop importing the static data and instead fetch it when the app or a screen loads, and store it in state. For login, you'd send the code to your backend and, if the response is successful, call the same <code>onLogin()</code> (or <code>handleSubmitLogin</code>) that you use today so the rest of the app doesn't need to change.</p>
+  <p>A good way to try this is to implement one endpoint first (e.g. <code>GET /menus/current</code>), call it from React when the app loads, put the result in state, and pass it into the same components that currently use the imported menu. Once that works, you can add the other endpoints (login, archive, notes) so the behavior matches what you learned in the tutorial above.</p>
+
+  <h2>Project structure (reference)</h2>
+  <p>Here's a quick reference for where everything lives so you can jump to the right file while you're learning.</p>
+  <table>
+    <thead>
+      <tr><th>Path</th><th>Role</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>src/cafe307.jsx</code></td><td>Root App; login vs MainView routing</td></tr>
+      <tr><td><code>src/main.jsx</code></td><td>Entry; mounts App to the DOM</td></tr>
+      <tr><td><code>data/theme.js</code></td><td>Colors and fonts</td></tr>
+      <tr><td><code>data/animationConstants.js</code></td><td>Fade/stagger timing</td></tr>
+      <tr><td><code>data/loginConstants.js</code></td><td>Valid codes and error display duration</td></tr>
+      <tr><td><code>data/currentMenu.js</code></td><td>Featured menu for the Menu tab</td></tr>
+      <tr><td><code>data/archivedMenus.js</code></td><td>Past menus for the Archive tab</td></tr>
+      <tr><td><code>data/chefsNotes.js</code></td><td>Chef notes; <code>getChefNote(menuDate)</code></td></tr>
+      <tr><td><code>data/vipReviews.js</code></td><td>VIP reviews; <code>getVipReview(menuDate)</code></td></tr>
+      <tr><td><code>components/LoginPage.jsx</code></td><td>Login screen</td></tr>
+      <tr><td><code>components/MainView.jsx</code></td><td>Dashboard with tabs and tab content</td></tr>
+      <tr><td><code>components/DinnerMenu.jsx</code></td><td>Menu card (date, courses, items)</td></tr>
+      <tr><td><code>components/FadeIn.jsx</code></td><td>Fade-in + slide-up wrapper</td></tr>
+      <tr><td><code>components/SectionDivider.jsx</code></td><td>Line-dot-line divider between sections</td></tr>
+    </tbody>
+  </table>
+
+</body>
+</html>

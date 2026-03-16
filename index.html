@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cafe 307</title>
+  </head>
+  <body>
+    <!-- div id="root" — This is the only element we need in the body for React.
+         main.jsx does document.getElementById("root") to find this div, then createRoot(...).render(<App />) so React draws the whole app inside it.
+         In plain English: "The empty box where the React app will live; the script finds it by id and renders App here." -->
+    <div id="root"></div>
+    <!-- script type="module" src="/src/main.jsx" — type="module" means the browser loads this as an ES module (so we can use import).
+         src is the path to our entry file; Vite's dev server serves it and compiles JSX.
+         When the page loads, the browser runs main.jsx, which mounts the App component into #root.
+         In plain English: "Load and run main.jsx; that file mounts the React app into the div above." -->
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
