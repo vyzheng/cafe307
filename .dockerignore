@@ -1,0 +1,8 @@
+node_modules
+dist
+cafe307.db
+.cursor
+.git
+.DS_Store
+__pycache__
+*.pyc
