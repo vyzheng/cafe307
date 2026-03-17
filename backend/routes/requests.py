@@ -42,36 +42,26 @@ def list_requests(db: Session = Depends(get_db)):
     return [{"dishName": r.dish_name, "count": r.count} for r in results]
 
 
-@router.post("/checkout")
-def create_checkout(
+@router.post("/create-payment-intent")
+def create_payment_intent(
     body: dict = Body(...),
     user_code: str = Depends(_require_logged_in),
 ):
-    """Create a Stripe Checkout session for a $1 dish request."""
+    """Create a Stripe PaymentIntent for a $1 dish request."""
     dish_name = (body.get("dishName") or "").strip().title()
     if not dish_name or len(dish_name) > 200:
         raise HTTPException(status_code=400, detail="Invalid dish name")
 
-    base_url = os.environ.get("PRODUCTION_URL", "http://localhost:5173")
-    session = stripe.checkout.Session.create(
-        payment_method_types=["card"],
-        line_items=[{
-            "price_data": {
-                "currency": "usd",
-                "unit_amount": 100,
-                "product_data": {"name": f"Dish Request: {dish_name}"},
-            },
-            "quantity": 1,
-        }],
-        mode="payment",
-        success_url=f"{base_url}?tab=requests&status=success",
-        cancel_url=f"{base_url}?tab=requests&status=cancelled",
+    intent = stripe.PaymentIntent.create(
+        amount=100,
+        currency="usd",
+        automatic_payment_methods={"enabled": True},
         metadata={
             "dish_name": dish_name,
             "user_code": user_code,
         },
     )
-    return {"checkoutUrl": session.url}
+    return {"clientSecret": intent.client_secret}
 
 
 @router.post("/webhook")
@@ -86,10 +76,10 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     except (ValueError, stripe.error.SignatureVerificationError):
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
 
-    if event["type"] == "checkout.session.completed":
-        session_obj = event["data"]["object"]
-        session_id = session_obj["id"]
-        metadata = session_obj.get("metadata", {})
+    if event["type"] == "payment_intent.succeeded":
+        intent = event["data"]["object"]
+        intent_id = intent["id"]
+        metadata = intent.get("metadata", {})
         dish_name = metadata.get("dish_name", "").strip().title()
         user_code = metadata.get("user_code", "").strip().lower()
 
@@ -97,7 +87,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
             return {"status": "skipped", "reason": "missing metadata"}
 
         existing = db.query(DishRequest).filter(
-            DishRequest.stripe_checkout_session_id == session_id
+            DishRequest.stripe_payment_intent_id == intent_id
         ).first()
         if existing:
             return {"status": "already_recorded"}
@@ -105,7 +95,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         new_request = DishRequest(
             dish_name=dish_name,
             user_code=user_code,
-            stripe_checkout_session_id=session_id,
+            stripe_payment_intent_id=intent_id,
             created_at=datetime.utcnow(),
         )
         db.add(new_request)

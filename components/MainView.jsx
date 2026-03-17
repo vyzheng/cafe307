@@ -35,12 +35,7 @@ const shellStyle = {
 function MainView({ userCode }) {
   const { setTrack } = useMusic();
   /* Which tab is selected. TabBar calls setTab on click. */
-  const initialTab = (() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("tab") === "requests") return TAB_IDS.REQUESTS;
-    return TAB_IDS.MENU;
-  })();
-  const [tab, setTab] = useState(initialTab);
+  const [tab, setTab] = useState(TAB_IDS.MENU);
 
   /* Current menu: fetched from API on mount; fallback to static import if API fails or is offline. */
   const [currentMenu, setCurrentMenu] = useState(staticCurrentMenu);

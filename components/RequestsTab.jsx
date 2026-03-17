@@ -1,20 +1,132 @@
 /**
- * Dish Requests tab: users pay $1 via Stripe to request a dish.
+ * Dish Requests tab: users pay $1 via inline Stripe payment to request a dish.
  * Most-requested dishes rise to the top.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, Component } from "react";
 import PropTypes from "prop-types";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import FadeIn from "./FadeIn";
 import SectionDivider from "./SectionDivider";
 import { colors, fonts, mainView } from "../data/theme";
-import { API_BASE } from "../src/config";
+import { API_BASE, STRIPE_PUBLISHABLE_KEY } from "../src/config";
+
+const stripePromise = STRIPE_PUBLISHABLE_KEY ? loadStripe(STRIPE_PUBLISHABLE_KEY) : null;
+
+/* Error boundary so Stripe Elements errors don't crash the whole app */
+class PaymentErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ textAlign: "center", marginTop: 16 }}>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 12, color: "#C0392B", marginBottom: 8 }}>
+            Payment form failed to load. Please try again.
+          </div>
+          <button
+            onClick={() => { this.setState({ hasError: false }); this.props.onCancel(); }}
+            style={{
+              padding: "10px 20px", border: "none", background: "rgba(200,200,200,0.15)",
+              borderRadius: 14, fontFamily: "'Cormorant Garamond', serif", fontSize: 13,
+              color: "#9B8B7A", cursor: "pointer",
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+/* Inner payment form — must be inside <Elements> to use useStripe/useElements */
+function PaymentForm({ onSuccess, onCancel }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState(null);
+
+  const handlePay = async (e) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setPaying(true);
+    setPayError(null);
+    const { error } = await stripe.confirmPayment({
+      elements,
+      redirect: "if_required",
+    });
+    if (error) {
+      setPayError(error.message);
+      setPaying(false);
+    } else {
+      onSuccess();
+    }
+  };
+
+  return (
+    <form onSubmit={handlePay} style={{ marginTop: 16 }}>
+      <PaymentElement />
+      <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+        <button
+          type="submit"
+          disabled={paying || !stripe}
+          style={{
+            flex: 1, padding: "12px 0", border: "none",
+            background: "linear-gradient(135deg, rgba(244,180,195,0.3), rgba(232,224,240,0.35))",
+            borderRadius: 14, fontFamily: fonts.body, fontSize: 13,
+            letterSpacing: 2, color: colors.ink, cursor: "pointer",
+            transition: "all 0.3s", opacity: paying ? 0.6 : 1,
+          }}
+        >
+          {paying ? "Processing..." : "Pay $1"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={paying}
+          style={{
+            padding: "12px 16px", border: "none",
+            background: "rgba(200,200,200,0.15)",
+            borderRadius: 14, fontFamily: fonts.body, fontSize: 13,
+            letterSpacing: 1, color: colors.inkLight, cursor: "pointer",
+            transition: "all 0.3s",
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+      {payError && (
+        <div style={{
+          textAlign: "center", marginTop: 8, fontFamily: fonts.body,
+          fontSize: 11, color: colors.err,
+        }}>
+          {payError}
+        </div>
+      )}
+    </form>
+  );
+}
+
+PaymentForm.propTypes = {
+  onSuccess: PropTypes.func.isRequired,
+  onCancel: PropTypes.func.isRequired,
+};
 
 function RequestsTab({ userCode }) {
   const [dishName, setDishName] = useState("");
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [clientSecret, setClientSecret] = useState(null);
+  const [successMsg, setSuccessMsg] = useState(null);
 
   const fetchRequests = () => {
     fetch(`${API_BASE}/api/requests`)
@@ -27,25 +139,14 @@ function RequestsTab({ userCode }) {
     fetchRequests();
   }, []);
 
-  /* Handle return from Stripe Checkout */
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("status") === "success") {
-      fetchRequests();
-      window.history.replaceState({}, "", window.location.pathname);
-    }
-    if (params.get("status") === "cancelled") {
-      window.history.replaceState({}, "", window.location.pathname);
-    }
-  }, []);
-
   const handleRequest = async () => {
     const trimmed = dishName.trim();
     if (!trimmed) return;
     setLoading(true);
     setError(null);
+    setSuccessMsg(null);
     try {
-      const res = await fetch(`${API_BASE}/api/requests/checkout`, {
+      const res = await fetch(`${API_BASE}/api/requests/create-payment-intent`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -53,14 +154,41 @@ function RequestsTab({ userCode }) {
         },
         body: JSON.stringify({ dishName: trimmed }),
       });
-      if (!res.ok) throw new Error("Failed to create checkout");
-      const { checkoutUrl } = await res.json();
-      window.location.href = checkoutUrl;
+      if (!res.ok) throw new Error("Failed to create payment");
+      const data = await res.json();
+      setClientSecret(data.clientSecret);
     } catch {
       setError("Something went wrong. Please try again.");
+    } finally {
       setLoading(false);
     }
   };
+
+  const handlePaymentSuccess = () => {
+    setClientSecret(null);
+    setSuccessMsg(`✨ ${dishName.trim()} requested!`);
+    setDishName("");
+    fetchRequests();
+    setTimeout(() => setSuccessMsg(null), 3000);
+  };
+
+  const handleCancel = () => {
+    setClientSecret(null);
+  };
+
+  const elementsOptions = useMemo(() => clientSecret ? {
+    clientSecret,
+    appearance: {
+      theme: "flat",
+      variables: {
+        fontFamily: "'Cormorant Garamond', serif",
+        colorPrimary: "#E898AB",
+        colorText: "#4A3728",
+        colorTextSecondary: "#9B8B7A",
+        borderRadius: "12px",
+      },
+    },
+  } : null, [clientSecret]);
 
   return (
     <div style={{ ...mainView.card, padding: "48px 36px", overflow: "hidden" }}>
@@ -89,45 +217,66 @@ function RequestsTab({ userCode }) {
 
       <SectionDivider />
 
-      {/* Input + Button */}
+      {/* Input + Button + Inline Payment */}
       <div style={{ marginBottom: 24 }}>
         <input
           type="text"
           value={dishName}
           onChange={(e) => setDishName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") handleRequest(); }}
+          onKeyDown={(e) => { if (e.key === "Enter" && !clientSecret) handleRequest(); }}
           placeholder="e.g. Mapo Tofu, Char Siu Bao..."
+          disabled={!!clientSecret}
           style={{
             width: "100%", padding: "14px 0", border: "none",
             borderBottom: `1px solid rgba(232,152,171,0.3)`,
             background: "transparent", fontFamily: fonts.body, fontSize: 16,
             color: colors.ink, textAlign: "center", letterSpacing: 1,
             outline: "none", boxSizing: "border-box",
+            opacity: clientSecret ? 0.5 : 1,
           }}
         />
-        <button
-          onClick={handleRequest}
-          disabled={loading || !dishName.trim()}
-          style={{
-            display: "block", width: "100%", marginTop: 16,
-            padding: "14px 0", border: "none",
-            background: dishName.trim()
-              ? "linear-gradient(135deg, rgba(244,180,195,0.2), rgba(232,224,240,0.25))"
-              : "rgba(200,200,200,0.1)",
-            borderRadius: 14, fontFamily: fonts.body, fontSize: 14,
-            letterSpacing: 2.5, color: dishName.trim() ? colors.ink : colors.inkLight,
-            cursor: dishName.trim() ? "pointer" : "default",
-            transition: "all 0.3s",
-          }}
-        >
-          {loading ? "Redirecting..." : "Request · $1"}
-        </button>
+        {!clientSecret && (
+          <button
+            onClick={handleRequest}
+            disabled={loading || !dishName.trim()}
+            style={{
+              display: "block", width: "100%", marginTop: 16,
+              padding: "14px 0", border: "none",
+              background: "linear-gradient(135deg, rgba(244,180,195,0.2), rgba(232,224,240,0.25))",
+              borderRadius: 14, fontFamily: fonts.body, fontSize: 14,
+              letterSpacing: 2.5, color: colors.ink,
+              cursor: dishName.trim() ? "pointer" : "default",
+              transition: "all 0.3s",
+              opacity: dishName.trim() ? 1 : 0.5,
+            }}
+          >
+            {loading ? "Loading..." : "Request · $1"}
+          </button>
+        )}
+
+        {/* Inline Stripe payment form */}
+        {clientSecret && stripePromise && elementsOptions && (
+          <PaymentErrorBoundary onCancel={handleCancel}>
+            <Elements stripe={stripePromise} options={elementsOptions}>
+              <PaymentForm onSuccess={handlePaymentSuccess} onCancel={handleCancel} />
+            </Elements>
+          </PaymentErrorBoundary>
+        )}
+
         {error && (
           <div style={{
             textAlign: "center", marginTop: 8, fontFamily: fonts.body,
             fontSize: 11, color: colors.err,
           }}>
             {error}
+          </div>
+        )}
+        {successMsg && (
+          <div style={{
+            textAlign: "center", marginTop: 8, fontFamily: fonts.body,
+            fontSize: 12, color: colors.success,
+          }}>
+            {successMsg}
           </div>
         )}
       </div>

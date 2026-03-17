@@ -40,5 +40,5 @@ class DishRequest(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     dish_name = Column(String(256), nullable=False)
     user_code = Column(String(64), nullable=False)
-    stripe_checkout_session_id = Column(String(256), nullable=False, unique=True)
+    stripe_payment_intent_id = Column(String(256), nullable=False, unique=True)
     created_at = Column(DateTime, nullable=False)
