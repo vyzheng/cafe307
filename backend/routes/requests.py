@@ -55,7 +55,7 @@ def create_payment_intent(
     intent = stripe.PaymentIntent.create(
         amount=100,
         currency="usd",
-        payment_method_types=["card"],
+        payment_method_types=["card", "link"],
         metadata={
             "dish_name": dish_name,
             "user_code": user_code,

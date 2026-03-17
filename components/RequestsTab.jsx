@@ -6,7 +6,7 @@
 import { useState, useEffect, useMemo, Component } from "react";
 import PropTypes from "prop-types";
 import { loadStripe } from "@stripe/stripe-js";
-import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import FadeIn from "./FadeIn";
 import SectionDivider from "./SectionDivider";
 import { colors, fonts, mainView } from "../data/theme";
@@ -48,30 +48,20 @@ class PaymentErrorBoundary extends Component {
 }
 
 /* Inner payment form — must be inside <Elements> to use useStripe/useElements */
-function PaymentForm({ clientSecret, onSuccess, onCancel }) {
+function PaymentForm({ onSuccess, onCancel }) {
   const stripe = useStripe();
   const elements = useElements();
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState(null);
-
-  const cardStyle = {
-    base: {
-      fontFamily: "'Cormorant Garamond', serif",
-      fontSize: "16px",
-      color: "#4A3728",
-      "::placeholder": { color: "#9B8B7A" },
-    },
-    invalid: { color: "#C0392B" },
-  };
 
   const handlePay = async (e) => {
     e.preventDefault();
     if (!stripe || !elements) return;
     setPaying(true);
     setPayError(null);
-    const card = elements.getElement(CardElement);
-    const { error } = await stripe.confirmCardPayment(clientSecret, {
-      payment_method: { card },
+    const { error } = await stripe.confirmPayment({
+      elements,
+      redirect: "if_required",
     });
     if (error) {
       setPayError(error.message);
@@ -83,13 +73,11 @@ function PaymentForm({ clientSecret, onSuccess, onCancel }) {
 
   return (
     <form onSubmit={handlePay} style={{ marginTop: 16 }}>
-      <div style={{
-        padding: "14px 12px", borderRadius: 12,
-        border: "1px solid rgba(232,152,171,0.3)",
-        background: "rgba(255,255,255,0.5)",
-      }}>
-        <CardElement options={{ style: cardStyle, hidePostalCode: true, disableLink: true }} />
-      </div>
+      <PaymentElement options={{
+        layout: "accordion",
+        wallets: { applePay: "auto", googlePay: "auto" },
+        fields: { billingDetails: { address: { postalCode: "never", country: "never" } } },
+      }} />
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
         <button
           type="submit"
@@ -132,7 +120,6 @@ function PaymentForm({ clientSecret, onSuccess, onCancel }) {
 }
 
 PaymentForm.propTypes = {
-  clientSecret: PropTypes.string.isRequired,
   onSuccess: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
 };
@@ -193,7 +180,19 @@ function RequestsTab({ userCode }) {
     setClientSecret(null);
   };
 
-  const elementsOptions = useMemo(() => clientSecret ? { clientSecret } : null, [clientSecret]);
+  const elementsOptions = useMemo(() => clientSecret ? {
+    clientSecret,
+    appearance: {
+      theme: "flat",
+      variables: {
+        fontFamily: "'Cormorant Garamond', serif",
+        colorPrimary: "#E898AB",
+        colorText: "#4A3728",
+        colorTextSecondary: "#9B8B7A",
+        borderRadius: "12px",
+      },
+    },
+  } : null, [clientSecret]);
 
   return (
     <div style={{ ...mainView.card, padding: "48px 36px", overflow: "hidden" }}>
@@ -263,7 +262,7 @@ function RequestsTab({ userCode }) {
         {clientSecret && stripePromise && elementsOptions && (
           <PaymentErrorBoundary onCancel={handleCancel}>
             <Elements stripe={stripePromise} options={elementsOptions}>
-              <PaymentForm clientSecret={clientSecret} onSuccess={handlePaymentSuccess} onCancel={handleCancel} />
+              <PaymentForm onSuccess={handlePaymentSuccess} onCancel={handleCancel} />
             </Elements>
           </PaymentErrorBoundary>
         )}
