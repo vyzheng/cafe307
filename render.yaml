@@ -8,6 +8,10 @@ services:
         value: /data
       - key: PRODUCTION_URL
         value: https://cafe307.com
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
     disk:
       name: cafe307-data
       mountPath: /data

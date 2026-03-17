@@ -13,6 +13,7 @@ import TabBar from "./TabBar";
 import ArchiveTab from "./ArchiveTab";
 import NotesTab from "./NotesTab";
 import AddMenuTab from "./AddMenuTab";
+import RequestsTab from "./RequestsTab";
 
 import { colors } from "../data/theme";
 import staticCurrentMenu from "../data/currentMenu";
@@ -34,7 +35,12 @@ const shellStyle = {
 function MainView({ userCode }) {
   const { setTrack } = useMusic();
   /* Which tab is selected. TabBar calls setTab on click. */
-  const [tab, setTab] = useState(TAB_IDS.MENU);
+  const initialTab = (() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") === "requests") return TAB_IDS.REQUESTS;
+    return TAB_IDS.MENU;
+  })();
+  const [tab, setTab] = useState(initialTab);
 
   /* Current menu: fetched from API on mount; fallback to static import if API fails or is offline. */
   const [currentMenu, setCurrentMenu] = useState(staticCurrentMenu);
@@ -141,6 +147,12 @@ function MainView({ userCode }) {
         {tab === TAB_IDS.NOTES && (
           <FadeIn delay={300}>
             <NotesTab menuDates={allMenusForArchive.map((m) => m.date)} userCode={userCode} />
+          </FadeIn>
+        )}
+
+        {tab === TAB_IDS.REQUESTS && (
+          <FadeIn delay={300}>
+            <RequestsTab userCode={userCode} />
           </FadeIn>
         )}
 

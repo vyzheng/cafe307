@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse
 from backend.database import engine, Base
 from backend.routes.menus import router as menus_router
 from backend.routes.notes import router as notes_router
+from backend.routes.requests import router as requests_router
 
 DIST_DIR = Path(__file__).resolve().parent.parent / "dist"
 
@@ -41,6 +42,7 @@ app.add_middleware(
 
 app.include_router(menus_router)
 app.include_router(notes_router)
+app.include_router(requests_router)
 
 if DIST_DIR.is_dir():
     app.mount("/assets", StaticFiles(directory=str(DIST_DIR / "assets")), name="assets")
