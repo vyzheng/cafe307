@@ -88,7 +88,7 @@ function PaymentForm({ clientSecret, onSuccess, onCancel }) {
         border: "1px solid rgba(232,152,171,0.3)",
         background: "rgba(255,255,255,0.5)",
       }}>
-        <CardElement options={{ style: cardStyle, hidePostalCode: true }} />
+        <CardElement options={{ style: cardStyle, hidePostalCode: true, disableLink: true }} />
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
         <button
