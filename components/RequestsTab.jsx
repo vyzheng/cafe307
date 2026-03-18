@@ -195,7 +195,7 @@ function PaymentForm({ clientSecret, onSuccess, onCancel }) {
         </div>
       )}
 
-      {/* Tab content: Stripe Link */}
+      {/* Tab content: Stripe Link — use confirmPayment with redirect to trigger Link popup */}
       {activeTab === "link" && (
         <>
           <div style={{
@@ -207,7 +207,23 @@ function PaymentForm({ clientSecret, onSuccess, onCancel }) {
           </div>
           <button
               type="button"
-              disabled={paying || !stripe}
+              disabled={paying || !stripe || !elements}
+              onClick={async () => {
+                if (!stripe || !elements) return;
+                setPaying(true);
+                setPayError(null);
+                const { error, paymentIntent } = await stripe.confirmPayment({
+                  elements,
+                  confirmParams: {},
+                  redirect: "if_required",
+                });
+                if (error) {
+                  setPayError(error.message);
+                  setPaying(false);
+                } else if (paymentIntent) {
+                  onSuccess(paymentIntent.id);
+                }
+              }}
               style={{
                 display: "block", width: "100%", marginTop: 14,
                 padding: "13px 0", border: "none",
