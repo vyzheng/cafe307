@@ -1,11 +1,11 @@
 """Menu API: GET current (public), PUT current (vivian only)."""
-from typing import Optional
-
-from fastapi import APIRouter, Body, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import Menu
+from backend.auth import require_vivian
+from backend.schemas import MenuIn, MenuOut
 
 router = APIRouter(prefix="/api/menus", tags=["menus"])
 
@@ -19,6 +19,10 @@ def _row_to_menu(row: Menu) -> dict:
         "label": row.label,
         "courses": row.courses or [],
     }
+
+
+def _resolve_lunar(menu: MenuIn) -> str:
+    return menu.lunarDate or menu.lunar_date or ""
 
 
 @router.get("/current")
@@ -37,25 +41,15 @@ def get_archive(db: Session = Depends(get_db)):
     return [_row_to_menu(r) for r in rows]
 
 
-def _require_vivian(x_reservation_code: Optional[str] = Header(default=None, alias="X-Reservation-Code")):
-    code = (x_reservation_code or "").strip().lower()
-    if code != "vivian":
-        raise HTTPException(status_code=403, detail="Forbidden")
-    return code
-
-
 @router.post("/archive")
 def post_archive_menu(
-    menu: dict = Body(...),
+    menu: MenuIn,
     db: Session = Depends(get_db),
-    _: str = Depends(_require_vivian),
+    _: str = Depends(require_vivian),
 ):
     """Add a menu to the archive (is_current=False). Requires X-Reservation-Code: vivian."""
-    date = menu.get("date", "")
-    lunar_date = menu.get("lunarDate") or menu.get("lunar_date") or ""
-    label = menu.get("label", "")
-    courses = menu.get("courses", [])
-    new = Menu(date=date, lunar_date=lunar_date, label=label, courses=courses, is_current=False)
+    courses = [c.model_dump() for c in menu.courses]
+    new = Menu(date=menu.date, lunar_date=_resolve_lunar(menu), label=menu.label, courses=courses, is_current=False)
     db.add(new)
     db.commit()
     db.refresh(new)
@@ -64,22 +58,17 @@ def post_archive_menu(
 
 @router.put("/current")
 def put_current_menu(
-    menu: dict = Body(...),
+    menu: MenuIn,
     db: Session = Depends(get_db),
-    x_reservation_code: Optional[str] = Header(default=None, alias="X-Reservation-Code"),
+    _: str = Depends(require_vivian),
 ):
     """Update the current menu. Previous current is kept as archived (is_current=False). Requires X-Reservation-Code: vivian."""
-    _require_vivian(x_reservation_code)
-    # Normalize: accept camelCase from frontend
-    date = menu.get("date", "")
-    lunar_date = menu.get("lunarDate") or menu.get("lunar_date") or ""
-    label = menu.get("label", "")
-    courses = menu.get("courses", [])
+    courses = [c.model_dump() for c in menu.courses]
     row = db.query(Menu).filter(Menu.is_current == True).first()
     if row:
-        row.is_current = False  # keep row as archived; do not overwrite
+        row.is_current = False
         db.commit()
-    new = Menu(date=date, lunar_date=lunar_date, label=label, courses=courses, is_current=True)
+    new = Menu(date=menu.date, lunar_date=_resolve_lunar(menu), label=menu.label, courses=courses, is_current=True)
     db.add(new)
     db.commit()
     db.refresh(new)
@@ -89,23 +78,18 @@ def put_current_menu(
 @router.patch("/{menu_id}")
 def patch_menu(
     menu_id: int,
-    menu: dict = Body(...),
+    menu: MenuIn,
     db: Session = Depends(get_db),
-    x_reservation_code: Optional[str] = Header(default=None, alias="X-Reservation-Code"),
+    _: str = Depends(require_vivian),
 ):
     """Update a menu by id (current or archived). Does not change is_current. Requires X-Reservation-Code: vivian."""
-    _require_vivian(x_reservation_code)
     row = db.query(Menu).filter(Menu.id == menu_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="Menu not found")
-    if "date" in menu:
-        row.date = menu.get("date", "")
-    if "lunarDate" in menu or "lunar_date" in menu:
-        row.lunar_date = menu.get("lunarDate") or menu.get("lunar_date") or ""
-    if "label" in menu:
-        row.label = menu.get("label", "")
-    if "courses" in menu:
-        row.courses = menu.get("courses", [])
+    row.date = menu.date
+    row.lunar_date = _resolve_lunar(menu)
+    row.label = menu.label
+    row.courses = [c.model_dump() for c in menu.courses]
     db.commit()
     db.refresh(row)
     return _row_to_menu(row)

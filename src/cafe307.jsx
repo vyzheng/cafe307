@@ -14,7 +14,7 @@ import { useState, useEffect } from "react";
   import LoginPage — We load the component that shows the reservation-code input and Enter button; the browser will render it when we're not logged in.
   The login screen lives in this file.
 */
-import LoginPage from "../components/LoginPage";
+import LoginPage from "../components/auth/LoginPage";
 
 /*
   import MainView — We load the component that shows the dashboard (header, Menu/Archive/Notes tabs, and the content for each tab); we render it after a successful login.
@@ -26,7 +26,7 @@ import MainView from "../components/MainView";
   import LOGIN_FADE_DURATION_MS — The number of milliseconds we wait after the user logs in before we switch from the login screen to the main view; the login wrapper fades out over this time so the swap doesn't feel abrupt.
   How long the fade-out lasts before we show the dashboard.
 */
-import { LOGIN_FADE_DURATION_MS } from "../data/animationConstants";
+import { LOGIN_FADE_DURATION_MS } from "../data/config/animation";
 import { MusicProvider } from "./context/MusicContext";
 
 /**
