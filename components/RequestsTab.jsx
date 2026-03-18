@@ -65,9 +65,9 @@ function OrDivider() {
 
 /* Tab labels for payment methods */
 const TABS = [
-  { id: "wallet", label: " Pay" },
-  { id: "link", label: "Link" },
   { id: "card", label: "Card" },
+  { id: "link", label: "Link" },
+  { id: "wallet", label: " Pay" },
 ];
 
 /* Inner payment form — must be inside <Elements> to use useStripe/useElements */
@@ -77,7 +77,7 @@ function PaymentForm({ clientSecret, onSuccess, onCancel }) {
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState(null);
   const [paymentRequest, setPaymentRequest] = useState(null);
-  const [activeTab, setActiveTab] = useState("wallet");
+  const [activeTab, setActiveTab] = useState("card");
 
   /* Apple Pay / Google Pay setup */
   useEffect(() => {
@@ -92,9 +92,6 @@ function PaymentForm({ clientSecret, onSuccess, onCancel }) {
     pr.canMakePayment().then((result) => {
       if (result) {
         setPaymentRequest(pr);
-      } else {
-        /* No wallet available — default to card tab */
-        setActiveTab("card");
       }
     });
     pr.on("paymentmethod", async (ev) => {
