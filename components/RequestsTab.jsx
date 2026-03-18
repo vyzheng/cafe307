@@ -7,7 +7,7 @@ import { useState, useEffect, useMemo, Component } from "react";
 import PropTypes from "prop-types";
 import { loadStripe } from "@stripe/stripe-js";
 import {
-  Elements, CardElement, LinkAuthenticationElement,
+  Elements, CardElement,
   PaymentRequestButtonElement, useStripe, useElements,
 } from "@stripe/react-stripe-js";
 import FadeIn from "./layout/FadeIn";
@@ -195,47 +195,53 @@ function PaymentForm({ clientSecret, onSuccess, onCancel }) {
         </div>
       )}
 
-      {/* Tab content: Stripe Link — use confirmPayment with redirect to trigger Link popup */}
+      {/* Tab content: Stripe Link — one-tap green button */}
       {activeTab === "link" && (
-        <>
-          <div style={{
-            padding: "14px 14px", borderRadius: 14,
-            border: "1px solid rgba(232,152,171,0.15)",
-            background: "rgba(255,255,255,0.5)",
-          }}>
-            <LinkAuthenticationElement />
-          </div>
-          <button
-              type="button"
-              disabled={paying || !stripe || !elements}
-              onClick={async () => {
-                if (!stripe || !elements) return;
-                setPaying(true);
-                setPayError(null);
-                const { error, paymentIntent } = await stripe.confirmPayment({
-                  elements,
-                  confirmParams: {},
-                  redirect: "if_required",
-                });
-                if (error) {
-                  setPayError(error.message);
-                  setPaying(false);
-                } else if (paymentIntent) {
-                  onSuccess(paymentIntent.id);
-                }
-              }}
-              style={{
-                display: "block", width: "100%", marginTop: 14,
-                padding: "13px 0", border: "none",
-                background: "linear-gradient(135deg, #F4B4C3, #E8E0F0)",
-                borderRadius: 12, fontFamily: fonts.body, fontSize: 13,
-                letterSpacing: 2, color: colors.ink, cursor: "pointer",
-                transition: "all 0.3s", opacity: paying ? 0.6 : 1,
-              }}
-            >
-              {paying ? "Processing..." : "Pay $1"}
-            </button>
-        </>
+        <button
+          type="button"
+          disabled={paying || !stripe}
+          onClick={async () => {
+            if (!stripe) return;
+            setPaying(true);
+            setPayError(null);
+            const { error, paymentIntent } = await stripe.confirmPayment({
+              clientSecret,
+              confirmParams: {
+                payment_method: { type: "link" },
+              },
+              redirect: "if_required",
+            });
+            if (error) {
+              setPayError(error.message);
+              setPaying(false);
+            } else if (paymentIntent) {
+              onSuccess(paymentIntent.id);
+            }
+          }}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            gap: 8, width: "100%", padding: "14px 0", border: "none",
+            background: "#33C252", borderRadius: 12, cursor: "pointer",
+            transition: "all 0.3s", opacity: paying ? 0.6 : 1,
+          }}
+        >
+          {paying ? (
+            <span style={{ fontFamily: fonts.body, fontSize: 14, color: "#fff", letterSpacing: 1 }}>
+              Processing...
+            </span>
+          ) : (
+            <>
+              <span style={{ fontFamily: fonts.body, fontSize: 14, color: "#fff", letterSpacing: 1 }}>
+                Pay with
+              </span>
+              <svg width="40" height="18" viewBox="0 0 40 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="9" cy="9" r="8" fill="#fff"/>
+                <path d="M6 9l2 2 4-4" stroke="#33C252" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                <text x="20" y="13.5" fontFamily="Arial, sans-serif" fontSize="13" fontWeight="700" fill="#fff">link</text>
+              </svg>
+            </>
+          )}
+        </button>
       )}
 
       {/* Tab content: Card */}
