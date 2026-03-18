@@ -29,8 +29,12 @@ def _require_logged_in(
 
 @router.get("")
 def list_requests(db: Session = Depends(get_db)):
-    """Return dishes ranked by request count, descending."""
-    results = (
+    """Return dishes ranked by request count, descending, with who requested."""
+    from sqlalchemy import distinct
+    from collections import defaultdict
+
+    # Get counts
+    count_results = (
         db.query(
             DishRequest.dish_name,
             func.count(DishRequest.id).label("count"),
@@ -39,7 +43,25 @@ def list_requests(db: Session = Depends(get_db)):
         .order_by(func.count(DishRequest.id).desc(), DishRequest.dish_name)
         .all()
     )
-    return [{"dishName": r.dish_name, "count": r.count} for r in results]
+
+    # Get unique requesters per dish
+    requester_rows = (
+        db.query(DishRequest.dish_name, DishRequest.user_code)
+        .distinct()
+        .all()
+    )
+    requesters = defaultdict(list)
+    for row in requester_rows:
+        requesters[row.dish_name].append(row.user_code)
+
+    return [
+        {
+            "dishName": r.dish_name,
+            "count": r.count,
+            "requestedBy": requesters.get(r.dish_name, []),
+        }
+        for r in count_results
+    ]
 
 
 @router.post("/create-payment-intent")
@@ -52,7 +74,9 @@ def create_payment_intent(
     if not dish_name or len(dish_name) > 200:
         raise HTTPException(status_code=400, detail="Invalid dish name")
 
-    intent = stripe.PaymentIntent.create(
+    email = (body.get("email") or "").strip().lower()
+
+    intent_kwargs = dict(
         amount=100,
         currency="usd",
         payment_method_types=["card", "link"],
@@ -61,6 +85,10 @@ def create_payment_intent(
             "user_code": user_code,
         },
     )
+    if email:
+        intent_kwargs["receipt_email"] = email
+
+    intent = stripe.PaymentIntent.create(**intent_kwargs)
     return {"clientSecret": intent.client_secret}
 
 

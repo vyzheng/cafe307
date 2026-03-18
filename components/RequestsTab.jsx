@@ -291,6 +291,7 @@ PaymentForm.propTypes = {
 
 function RequestsTab({ userCode }) {
   const [dishName, setDishName] = useState("");
+  const [email, setEmail] = useState("");
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -321,7 +322,7 @@ function RequestsTab({ userCode }) {
           "Content-Type": "application/json",
           "X-Reservation-Code": userCode,
         },
-        body: JSON.stringify({ dishName: trimmed }),
+        body: JSON.stringify({ dishName: trimmed, email: email.trim() || undefined }),
       });
       if (!res.ok) throw new Error("Failed to create payment");
       const data = await res.json();
@@ -401,6 +402,22 @@ function RequestsTab({ userCode }) {
             color: colors.ink, textAlign: "center", letterSpacing: 1,
             outline: "none", boxSizing: "border-box",
             opacity: clientSecret ? 0.5 : 1,
+          }}
+        />
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !clientSecret) handleRequest(); }}
+          placeholder="Email for receipt (optional)"
+          disabled={!!clientSecret}
+          style={{
+            width: "100%", padding: "12px 0", border: "none",
+            borderBottom: `1px solid rgba(232,152,171,0.3)`,
+            background: "transparent", fontFamily: fonts.body, fontSize: 13,
+            color: colors.ink, textAlign: "center", letterSpacing: 1,
+            outline: "none", boxSizing: "border-box",
+            opacity: clientSecret ? 0.5 : 1, marginTop: 4,
           }}
         />
         {!clientSecret && (
@@ -487,8 +504,16 @@ function RequestsTab({ userCode }) {
               }}>
                 {r.dishName}
               </div>
+              {r.requestedBy && r.requestedBy.length > 0 && (
+                <div style={{
+                  fontFamily: fonts.body, fontSize: 11, color: colors.inkLight,
+                  marginTop: 6, letterSpacing: 0.5,
+                }}>
+                  {r.requestedBy.join(", ")}
+                </div>
+              )}
               <div style={{
-                display: "inline-block", marginTop: 8,
+                display: "inline-block", marginTop: 6,
                 padding: "3px 10px", fontSize: 8, fontFamily: fonts.jp,
                 color: colors.pinkDeep,
                 border: "1px solid rgba(232,152,171,0.2)", borderRadius: 10,
