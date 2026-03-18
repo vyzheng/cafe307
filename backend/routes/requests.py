@@ -64,41 +64,46 @@ def create_payment_intent(
     return {"clientSecret": intent.client_secret}
 
 
-@router.post("/webhook")
-async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
-    """Handle Stripe webhook: record the dish request after successful payment."""
-    payload = await request.body()
-    sig_header = request.headers.get("stripe-signature")
-    webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET")
+@router.post("/confirm")
+def confirm_payment(
+    body: dict = Body(...),
+    user_code: str = Depends(_require_logged_in),
+    db: Session = Depends(get_db),
+):
+    """Verify a PaymentIntent succeeded with Stripe and record the dish request."""
+    payment_intent_id = (body.get("paymentIntentId") or "").strip()
+    if not payment_intent_id:
+        raise HTTPException(status_code=400, detail="Missing paymentIntentId")
 
+    # Verify with Stripe that this payment actually succeeded
     try:
-        event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
-    except (ValueError, stripe.error.SignatureVerificationError):
-        raise HTTPException(status_code=400, detail="Invalid webhook signature")
+        intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid payment intent")
 
-    if event["type"] == "payment_intent.succeeded":
-        intent = event["data"]["object"]
-        intent_id = intent["id"]
-        metadata = intent.get("metadata", {})
-        dish_name = metadata.get("dish_name", "").strip().title()
-        user_code = metadata.get("user_code", "").strip().lower()
+    if intent.status != "succeeded":
+        raise HTTPException(status_code=400, detail="Payment not completed")
 
-        if not dish_name or not user_code:
-            return {"status": "skipped", "reason": "missing metadata"}
+    dish_name = intent.metadata.get("dish_name", "").strip().title()
+    meta_user = intent.metadata.get("user_code", "").strip().lower()
 
-        existing = db.query(DishRequest).filter(
-            DishRequest.stripe_payment_intent_id == intent_id
-        ).first()
-        if existing:
-            return {"status": "already_recorded"}
+    if not dish_name or meta_user != user_code:
+        raise HTTPException(status_code=400, detail="Payment metadata mismatch")
 
-        new_request = DishRequest(
-            dish_name=dish_name,
-            user_code=user_code,
-            stripe_payment_intent_id=intent_id,
-            created_at=datetime.utcnow(),
-        )
-        db.add(new_request)
-        db.commit()
+    # Idempotent: skip if already recorded
+    existing = db.query(DishRequest).filter(
+        DishRequest.stripe_payment_intent_id == payment_intent_id
+    ).first()
+    if existing:
+        return {"status": "already_recorded"}
+
+    new_request = DishRequest(
+        dish_name=dish_name,
+        user_code=user_code,
+        stripe_payment_intent_id=payment_intent_id,
+        created_at=datetime.utcnow(),
+    )
+    db.add(new_request)
+    db.commit()
 
     return {"status": "ok"}

@@ -95,7 +95,7 @@ function PaymentForm({ clientSecret, onSuccess, onCancel }) {
       }
     });
     pr.on("paymentmethod", async (ev) => {
-      const { error: confirmError } = await stripe.confirmCardPayment(
+      const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
         clientSecret,
         { payment_method: ev.paymentMethod.id },
         { handleActions: false },
@@ -105,7 +105,7 @@ function PaymentForm({ clientSecret, onSuccess, onCancel }) {
         setPayError(confirmError.message);
       } else {
         ev.complete("success");
-        onSuccess();
+        onSuccess(paymentIntent.id);
       }
     });
   }, [stripe, clientSecret, onSuccess]);
@@ -127,14 +127,14 @@ function PaymentForm({ clientSecret, onSuccess, onCancel }) {
     setPaying(true);
     setPayError(null);
     const card = elements.getElement(CardElement);
-    const { error } = await stripe.confirmCardPayment(clientSecret, {
+    const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
       payment_method: { card },
     });
     if (error) {
       setPayError(error.message);
       setPaying(false);
     } else {
-      onSuccess();
+      onSuccess(paymentIntent.id);
     }
   };
 
@@ -311,7 +311,18 @@ function RequestsTab({ userCode }) {
     }
   };
 
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = async (paymentIntentId) => {
+    /* Tell backend to verify & record the request */
+    try {
+      await fetch(`${API_BASE}/api/requests/confirm`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Reservation-Code": userCode,
+        },
+        body: JSON.stringify({ paymentIntentId }),
+      });
+    } catch { /* best-effort — webhook is backup */ }
     setClientSecret(null);
     setSuccessMsg(`✨ ${dishName.trim()} requested!`);
     setDishName("");
