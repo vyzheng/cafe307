@@ -13,6 +13,7 @@ import TabBar from "./layout/TabBar";
 import ArchiveTab from "./menu/ArchiveTab";
 import NotesTab from "./notes/NotesTab";
 import AddMenuTab from "./menu/AddMenuTab";
+import RequestsTab from "./RequestsTab";
 
 import { colors } from "../data/config/theme";
 import staticCurrentMenu from "../data/fallback/currentMenu";
@@ -147,6 +148,12 @@ function MainView({ userCode }) {
         {tab === TAB_IDS.NOTES && (
           <FadeIn delay={300}>
             <NotesTab menuDates={allMenusForArchive.map((m) => m.date)} userCode={userCode} upcomingMenuDate={upcomingMenu?.date ?? null} />
+          </FadeIn>
+        )}
+
+        {tab === TAB_IDS.REQUESTS && (
+          <FadeIn delay={300}>
+            <RequestsTab userCode={userCode} />
           </FadeIn>
         )}
 

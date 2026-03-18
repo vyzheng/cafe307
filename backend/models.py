@@ -1,5 +1,5 @@
 """DB models for Cafe 307."""
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.sqlite import JSON
 
 from backend.database import Base
@@ -32,3 +32,13 @@ class VipReview(Base):
     menu_date = Column(String(64), nullable=False, unique=True)
     review = Column(Text, nullable=False, default="")
     updated_at = Column(DateTime, nullable=True)
+
+
+class DishRequest(Base):
+    __tablename__ = "dish_requests"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    dish_name = Column(String(256), nullable=False)
+    user_code = Column(String(64), nullable=False)
+    stripe_payment_intent_id = Column(String(256), nullable=False, unique=True)
+    created_at = Column(DateTime, nullable=False)

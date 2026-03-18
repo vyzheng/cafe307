@@ -3,3 +3,4 @@
  * Default port 8001 to avoid conflict with other apps on 8000.
  */
 export const API_BASE = import.meta.env.VITE_API_BASE ?? "";
+export const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? "";

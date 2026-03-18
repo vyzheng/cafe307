@@ -7,6 +7,7 @@ export const TAB_IDS = {
   MENU: "menu",
   ARCHIVE: "archive",
   NOTES: "notes",
+  REQUESTS: "requests",
   ADD_MENU: "add_menu",
 };
 
@@ -14,4 +15,5 @@ export const mainViewTabs = [
   { id: TAB_IDS.MENU, label: "Menu", cn: "菜單" },
   { id: TAB_IDS.ARCHIVE, label: "Archive", cn: "往期" },
   { id: TAB_IDS.NOTES, label: "Notes", cn: "筆記" },
+  { id: TAB_IDS.REQUESTS, label: "Requests", cn: "心願" },
 ];
