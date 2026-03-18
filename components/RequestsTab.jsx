@@ -10,9 +10,9 @@ import {
   Elements, CardElement, LinkAuthenticationElement,
   PaymentRequestButtonElement, useStripe, useElements,
 } from "@stripe/react-stripe-js";
-import FadeIn from "./FadeIn";
-import SectionDivider from "./SectionDivider";
-import { colors, fonts, mainView } from "../data/theme";
+import FadeIn from "./layout/FadeIn";
+import SectionDivider from "./layout/SectionDivider";
+import { colors, fonts, mainView } from "../data/config/theme";
 import { API_BASE, STRIPE_PUBLISHABLE_KEY } from "../src/config";
 
 const stripePromise = STRIPE_PUBLISHABLE_KEY ? loadStripe(STRIPE_PUBLISHABLE_KEY) : null;
