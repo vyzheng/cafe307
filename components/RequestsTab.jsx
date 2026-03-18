@@ -63,6 +63,13 @@ function OrDivider() {
   );
 }
 
+/* Tab labels for payment methods */
+const TABS = [
+  { id: "wallet", label: " Pay" },
+  { id: "link", label: "Link" },
+  { id: "card", label: "Card" },
+];
+
 /* Inner payment form — must be inside <Elements> to use useStripe/useElements */
 function PaymentForm({ clientSecret, onSuccess, onCancel }) {
   const stripe = useStripe();
@@ -70,6 +77,7 @@ function PaymentForm({ clientSecret, onSuccess, onCancel }) {
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState(null);
   const [paymentRequest, setPaymentRequest] = useState(null);
+  const [activeTab, setActiveTab] = useState("wallet");
 
   /* Apple Pay / Google Pay setup */
   useEffect(() => {
@@ -82,7 +90,12 @@ function PaymentForm({ clientSecret, onSuccess, onCancel }) {
       requestPayerEmail: false,
     });
     pr.canMakePayment().then((result) => {
-      if (result) setPaymentRequest(pr);
+      if (result) {
+        setPaymentRequest(pr);
+      } else {
+        /* No wallet available — default to card tab */
+        setActiveTab("card");
+      }
     });
     pr.on("paymentmethod", async (ev) => {
       const { error: confirmError } = await stripe.confirmCardPayment(
@@ -103,8 +116,9 @@ function PaymentForm({ clientSecret, onSuccess, onCancel }) {
   const cardStyle = {
     base: {
       fontFamily: "'Cormorant Garamond', serif",
-      fontSize: "16px",
+      fontSize: "13px",
       color: "#4A3728",
+      letterSpacing: "0.5px",
       "::placeholder": { color: "#9B8B7A" },
     },
     invalid: { color: "#C0392B" },
@@ -127,80 +141,116 @@ function PaymentForm({ clientSecret, onSuccess, onCancel }) {
     }
   };
 
+  /* Which tabs to show — hide wallet tab if not available */
+  const visibleTabs = paymentRequest
+    ? TABS
+    : TABS.filter((t) => t.id !== "wallet");
+
   return (
     <div style={{ marginTop: 16 }}>
-      {/* 1. Apple Pay / Google Pay (only on HTTPS with wallet set up) */}
-      {paymentRequest && (
-        <>
+      {/* Tab bar */}
+      <div style={{
+        display: "flex", borderRadius: 12, overflow: "hidden",
+        border: "1px solid rgba(232,152,171,0.2)", marginBottom: 16,
+      }}>
+        {visibleTabs.map((tab, i) => {
+          const isActive = tab.id === activeTab;
+          return (
+            <div
+              key={tab.id}
+              onClick={() => !paying && setActiveTab(tab.id)}
+              style={{
+                flex: 1, padding: "11px 0", textAlign: "center",
+                fontFamily: fonts.body, fontSize: 12, letterSpacing: 1.2,
+                cursor: paying ? "default" : "pointer",
+                transition: "all 0.25s ease",
+                background: isActive
+                  ? "linear-gradient(135deg, rgba(244,180,195,0.25), rgba(232,224,240,0.3))"
+                  : "rgba(255,255,255,0.4)",
+                color: isActive ? colors.ink : colors.inkLight,
+                fontWeight: isActive ? 500 : 400,
+                borderRight: i < visibleTabs.length - 1
+                  ? "1px solid rgba(232,152,171,0.15)" : "none",
+              }}
+            >
+              {tab.label}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Tab content: Apple Pay / Google Pay */}
+      {activeTab === "wallet" && paymentRequest && (
+        <div style={{ marginBottom: 16 }}>
           <PaymentRequestButtonElement options={{ paymentRequest, style: {
-            paymentRequestButton: { type: "default", theme: "light-outline", height: "44px" },
+            paymentRequestButton: { type: "default", theme: "light-outline", height: "48px" },
           } }} />
-          <OrDivider />
+        </div>
+      )}
+      {activeTab === "wallet" && !paymentRequest && (
+        <div style={{
+          textAlign: "center", padding: "20px 12px",
+          fontFamily: fonts.body, fontSize: 12, color: colors.inkLight,
+          fontStyle: "italic",
+        }}>
+          Apple Pay / Google Pay not available in this browser.
+          <br />Try Safari on macOS or Chrome on Android.
+        </div>
+      )}
+
+      {/* Tab content: Stripe Link */}
+      {activeTab === "link" && (
+        <>
+          <div style={{
+            padding: "14px 14px", borderRadius: 14,
+            border: "1px solid rgba(232,152,171,0.15)",
+            background: "rgba(255,255,255,0.5)",
+          }}>
+            <LinkAuthenticationElement />
+          </div>
+          <button
+              type="button"
+              disabled={paying || !stripe}
+              style={{
+                display: "block", width: "100%", marginTop: 14,
+                padding: "13px 0", border: "none",
+                background: "linear-gradient(135deg, #F4B4C3, #E8E0F0)",
+                borderRadius: 12, fontFamily: fonts.body, fontSize: 13,
+                letterSpacing: 2, color: colors.ink, cursor: "pointer",
+                transition: "all 0.3s", opacity: paying ? 0.6 : 1,
+              }}
+            >
+              {paying ? "Processing..." : "Pay $1"}
+            </button>
         </>
       )}
 
-      {/* 2. Stripe Link — inline email field for saved cards */}
-      <div style={{
-        padding: "10px 12px", borderRadius: 12,
-        border: "1px solid rgba(232,152,171,0.2)",
-        background: "rgba(255,255,255,0.4)",
-      }}>
-        <div style={{
-          fontFamily: fonts.body, fontSize: 10, letterSpacing: 1.5,
-          color: colors.inkLight, marginBottom: 6, textTransform: "uppercase",
-        }}>
-          Quick checkout with Link
-        </div>
-        <LinkAuthenticationElement />
-      </div>
-
-      <OrDivider />
-
-      {/* 3. Card — always expanded */}
-      <form onSubmit={handlePay}>
-        <div style={{
-          fontFamily: fonts.body, fontSize: 10, letterSpacing: 1.5,
-          color: colors.inkLight, marginBottom: 6, textTransform: "uppercase",
-        }}>
-          Pay with card
-        </div>
-        <div style={{
-          padding: "14px 12px", borderRadius: 12,
-          border: "1px solid rgba(232,152,171,0.3)",
-          background: "rgba(255,255,255,0.5)",
-        }}>
-          <CardElement options={{ style: cardStyle, hidePostalCode: true, disableLink: true }} />
-        </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+      {/* Tab content: Card */}
+      {activeTab === "card" && (
+        <form onSubmit={handlePay}>
+          <div style={{
+            padding: "14px 14px", borderRadius: 14,
+            border: "1px solid rgba(232,152,171,0.15)",
+            background: "rgba(255,255,255,0.5)",
+          }}>
+            <CardElement options={{ style: cardStyle, hidePostalCode: true, disableLink: true }} />
+          </div>
           <button
             type="submit"
             disabled={paying || !stripe}
             style={{
-              flex: 1, padding: "12px 0", border: "none",
-              background: "linear-gradient(135deg, rgba(244,180,195,0.3), rgba(232,224,240,0.35))",
-              borderRadius: 14, fontFamily: fonts.body, fontSize: 13,
+              display: "block", width: "100%", marginTop: 14,
+              padding: "13px 0", border: "none",
+              background: "linear-gradient(135deg, #F4B4C3, #E8E0F0)",
+              borderRadius: 12, fontFamily: fonts.body, fontSize: 13,
               letterSpacing: 2, color: colors.ink, cursor: "pointer",
               transition: "all 0.3s", opacity: paying ? 0.6 : 1,
             }}
           >
             {paying ? "Processing..." : "Pay $1"}
           </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={paying}
-            style={{
-              padding: "12px 16px", border: "none",
-              background: "rgba(200,200,200,0.15)",
-              borderRadius: 14, fontFamily: fonts.body, fontSize: 13,
-              letterSpacing: 1, color: colors.inkLight, cursor: "pointer",
-              transition: "all 0.3s",
-            }}
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
+        </form>
+      )}
 
       {payError && (
         <div style={{
