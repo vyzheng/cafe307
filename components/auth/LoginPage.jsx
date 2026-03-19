@@ -19,6 +19,24 @@ import { colors, fonts } from "../../data/config/theme";
 import { VALID_LOGIN_CODES, ERROR_DISPLAY_MS, LOGIN_COPY } from "../../data/config/login";
 import { useMusic } from "../../src/context/MusicContext";
 
+/* Small sound toggle for login page */
+function SoundToggle({ style }) {
+  const { toggleMute, muted } = useMusic();
+  return (
+    <span
+      onClick={(e) => { e.stopPropagation(); toggleMute(); }}
+      style={{
+        fontSize: 13, cursor: "pointer", opacity: muted ? 0.3 : 0.55,
+        transition: "opacity 0.2s", userSelect: "none",
+        ...style,
+      }}
+      title={muted ? "Sound on" : "Sound off"}
+    >
+      {muted ? "🔇" : "🔊"}
+    </span>
+  );
+}
+
 /* Login card layout and animation; only used by this component. */
 const loginCardBaseWidth = 380;
 const loginCardBaseHeight = 440;
@@ -117,7 +135,7 @@ function LoginPage({ onLogin }) {
     /* A full-height, centered container with the app background so the card floats in the middle; scrolls when the card is taller than the viewport so the full card is visible. */
     <div style={{
       minHeight: "100vh", overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "center",
-      padding: "40px 16px", background: colors.bg,
+      padding: "40px 16px", background: colors.bg, position: "relative",
       backgroundImage: "radial-gradient(circle at 20% 30%, rgba(244,180,195,0.1) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(253,220,204,0.1) 0%, transparent 50%)"
     }}>
       {/* The white card; its size scales with viewport so it's readable on desktop and compact on mobile. */}
@@ -134,8 +152,8 @@ function LoginPage({ onLogin }) {
             <div style={{ fontFamily: fonts.display, fontSize: sizes.title.cafe307FontSize, fontWeight: 300, color: colors.ink, letterSpacing: sizes.title.cafe307LetterSpacing, lineHeight: 1.2, marginBottom: sizes.title.cafe307MarginBottom }}>
               {LOGIN_COPY.title}
             </div>
-            <div style={{ fontFamily: fonts.jp, fontSize: sizes.title.jpFontSize, fontWeight: 300, color: colors.pinkDeep, letterSpacing: sizes.title.jpLetterSpacing, opacity: 0.7 }}>
-              {LOGIN_COPY.subtitle}
+            <div style={{ fontFamily: fonts.jp, fontSize: sizes.title.jpFontSize, fontWeight: 300, color: colors.pinkDeep, letterSpacing: sizes.title.jpLetterSpacing, opacity: 0.7, display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {LOGIN_COPY.subtitle} <SoundToggle />
             </div>
           </div>
         </FadeIn>
