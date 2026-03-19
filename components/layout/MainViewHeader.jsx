@@ -19,6 +19,9 @@ function MainViewHeader() {
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ padding: "6px 14px", background: "rgba(232,224,240,0.3)", borderRadius: 20, fontFamily: fonts.jp, fontSize: 9, color: colors.pinkDeep, letterSpacing: 1 }}>
+          {mainViewHeader.badge}
+        </div>
         {/* Sound toggle */}
         <span
           onClick={toggleMute}
@@ -30,9 +33,6 @@ function MainViewHeader() {
         >
           {muted ? "🔇" : "🔊"}
         </span>
-        <div style={{ padding: "6px 14px", background: "rgba(232,224,240,0.3)", borderRadius: 20, fontFamily: fonts.jp, fontSize: 9, color: colors.pinkDeep, letterSpacing: 1 }}>
-          {mainViewHeader.badge}
-        </div>
       </div>
     </div>
   );
