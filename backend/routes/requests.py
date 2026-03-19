@@ -64,11 +64,20 @@ def list_requests(db: Session = Depends(get_db)):
     for row in requester_rows:
         requesters[row.dish_name].append(row.user_code)
 
+    # Check granted status per dish (if any request for that dish has granted_at)
+    granted_rows = (
+        db.query(DishRequest.dish_name, func.max(DishRequest.granted_at).label("granted_at"))
+        .group_by(DishRequest.dish_name)
+        .all()
+    )
+    granted_map = {r.dish_name: r.granted_at for r in granted_rows}
+
     return [
         {
             "dishName": r.dish_name,
             "count": r.count,
             "requestedBy": requesters.get(r.dish_name, []),
+            "granted": granted_map.get(r.dish_name) is not None,
         }
         for r in count_results
     ]
@@ -160,3 +169,43 @@ def clear_requests(
     count = db.query(DishRequest).delete()
     db.commit()
     return {"deleted": count}
+
+
+class GrantBody(BaseModel):
+    dishName: str
+
+
+@router.post("/grant")
+def grant_wish(
+    body: GrantBody,
+    user_code: str = Depends(_require_logged_in),
+    db: Session = Depends(get_db),
+):
+    """Toggle granted status for a dish. Only vivian or vlad can grant."""
+    if user_code not in ("vivian", "vlad"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    dish_name = body.dishName.strip().title()
+    if not dish_name:
+        raise HTTPException(status_code=400, detail="Missing dish name")
+
+    # Check if already granted
+    first = db.query(DishRequest).filter(
+        DishRequest.dish_name == dish_name,
+        DishRequest.granted_at.isnot(None),
+    ).first()
+
+    if first:
+        # Ungrant — clear granted_at on all requests for this dish
+        db.query(DishRequest).filter(DishRequest.dish_name == dish_name).update(
+            {"granted_at": None}
+        )
+        db.commit()
+        return {"granted": False}
+    else:
+        # Grant — set granted_at on all requests for this dish
+        now = datetime.utcnow()
+        db.query(DishRequest).filter(DishRequest.dish_name == dish_name).update(
+            {"granted_at": now}
+        )
+        db.commit()
+        return {"granted": True}

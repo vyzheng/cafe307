@@ -445,6 +445,20 @@ function RequestsTab({ userCode }) {
     setClientSecret(null);
   };
 
+  const handleGrant = async (dishName) => {
+    try {
+      await fetch(`${API_BASE}/api/requests/grant`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Reservation-Code": userCode,
+        },
+        body: JSON.stringify({ dishName }),
+      });
+      fetchRequests();
+    } catch { /* ignore */ }
+  };
+
   /*
     elementsOptions — passed to <Elements>. The fonts array tells Stripe to
     load Cormorant Garamond inside its iframe so CardElement text matches the
@@ -573,39 +587,77 @@ function RequestsTab({ userCode }) {
           No wishes yet. Be the first!
         </div>
       ) : (
-        requests.map((r, i) => (
-          <FadeIn key={r.dishName} delay={100 + i * 100}>
-            <div style={{
-              textAlign: "center", padding: "20px 0",
-              borderBottom: i < requests.length - 1
-                ? "1px solid rgba(232,152,171,0.1)" : "none",
-            }}>
+        requests.map((r, i) => {
+          const canGrant = userCode === "vivian" || userCode === "vlad";
+          return (
+            <FadeIn key={r.dishName} delay={100 + i * 100}>
               <div style={{
-                fontFamily: fonts.body, fontStyle: "italic", fontSize: 15,
-                fontWeight: 300, color: colors.ink, letterSpacing: 2, lineHeight: 1.4,
+                textAlign: "center", padding: "20px 0",
+                borderBottom: i < requests.length - 1
+                  ? "1px solid rgba(232,152,171,0.1)" : "none",
+                position: "relative", overflow: "hidden",
               }}>
-                {r.dishName}
-              </div>
-              {r.requestedBy && r.requestedBy.length > 0 && (
+                {/* "GRANTED" corner ribbon */}
+                {r.granted && (
+                  <div style={{
+                    position: "absolute", top: 10, right: -28,
+                    background: "linear-gradient(135deg, #F4B4C3, #E8E0F0)",
+                    color: colors.ink, fontSize: 7, fontWeight: 600,
+                    letterSpacing: 1.5, textTransform: "uppercase",
+                    padding: "2px 32px", transform: "rotate(40deg)",
+                    whiteSpace: "nowrap", pointerEvents: "none",
+                  }}>
+                    Granted
+                  </div>
+                )}
+                {/* Dish name + star */}
                 <div style={{
-                  fontFamily: fonts.body, fontSize: 11, color: colors.inkLight,
-                  marginTop: 6, letterSpacing: 0.5,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 }}>
-                  {r.requestedBy.join(", ")}
+                  <div style={{
+                    fontFamily: fonts.body, fontStyle: "italic", fontSize: 15,
+                    fontWeight: 300, color: colors.ink, letterSpacing: 2, lineHeight: 1.4,
+                  }}>
+                    {r.dishName}
+                  </div>
+                  {canGrant && (
+                    <span
+                      onClick={() => handleGrant(r.dishName)}
+                      style={{
+                        fontSize: r.granted ? 18 : 16,
+                        cursor: "pointer",
+                        opacity: r.granted ? 1 : 0.3,
+                        filter: r.granted
+                          ? "grayscale(0) drop-shadow(0 0 3px rgba(212,169,106,0.35))"
+                          : "grayscale(1)",
+                        transition: "all 0.3s",
+                        userSelect: "none",
+                      }}
+                      title={r.granted ? "Ungrant wish" : "Grant wish"}
+                    >⭐</span>
+                  )}
                 </div>
-              )}
-              <div style={{
-                display: "inline-block", marginTop: 6,
-                padding: "3px 10px", fontSize: 8, fontFamily: fonts.jp,
-                color: colors.pinkDeep,
-                border: "1px solid rgba(232,152,171,0.2)", borderRadius: 10,
-                letterSpacing: 1, opacity: 0.8,
-              }}>
-                {r.count} {r.count === 1 ? "request" : "requests"}
+                <div style={{
+                  display: "inline-block", marginTop: 6,
+                  padding: "3px 10px", fontSize: 8, fontFamily: fonts.jp,
+                  color: colors.pinkDeep,
+                  border: "1px solid rgba(232,152,171,0.2)", borderRadius: 10,
+                  letterSpacing: 1, opacity: 0.8,
+                }}>
+                  {r.count} {r.count === 1 ? "request" : "requests"}
+                </div>
+                {r.requestedBy && r.requestedBy.length > 0 && (
+                  <div style={{
+                    fontFamily: fonts.body, fontSize: 11, color: colors.inkLight,
+                    marginTop: 6, letterSpacing: 0.5,
+                  }}>
+                    {r.requestedBy.join(", ")}
+                  </div>
+                )}
               </div>
-            </div>
-          </FadeIn>
-        ))
+            </FadeIn>
+          );
+        })
       )}
     </div>
   );
