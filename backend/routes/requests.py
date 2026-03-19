@@ -4,7 +4,8 @@ from datetime import datetime
 from typing import Optional
 
 import stripe
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -16,6 +17,15 @@ router = APIRouter(prefix="/api/requests", tags=["requests"])
 stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
 
 VALID_CODES = {"vivian", "vlad", "mushu", "gelato", "caramel", "tangyuan"}
+
+
+class CreatePaymentIntentBody(BaseModel):
+    dishName: str
+
+
+class ConfirmPaymentBody(BaseModel):
+    paymentIntentId: str
+    email: Optional[str] = None
 
 
 def _require_logged_in(
@@ -66,17 +76,15 @@ def list_requests(db: Session = Depends(get_db)):
 
 @router.post("/create-payment-intent")
 def create_payment_intent(
-    body: dict = Body(...),
+    body: CreatePaymentIntentBody,
     user_code: str = Depends(_require_logged_in),
 ):
     """Create a Stripe PaymentIntent for a $1 dish request."""
-    dish_name = (body.get("dishName") or "").strip().title()
+    dish_name = (body.dishName or "").strip().title()
     if not dish_name or len(dish_name) > 200:
         raise HTTPException(status_code=400, detail="Invalid dish name")
 
-    email = (body.get("email") or "").strip().lower()
-
-    intent_kwargs = dict(
+    intent = stripe.PaymentIntent.create(
         amount=100,
         currency="usd",
         payment_method_types=["card", "link"],
@@ -85,21 +93,17 @@ def create_payment_intent(
             "user_code": user_code,
         },
     )
-    if email:
-        intent_kwargs["receipt_email"] = email
-
-    intent = stripe.PaymentIntent.create(**intent_kwargs)
     return {"clientSecret": intent.client_secret}
 
 
 @router.post("/confirm")
 def confirm_payment(
-    body: dict = Body(...),
+    body: ConfirmPaymentBody,
     user_code: str = Depends(_require_logged_in),
     db: Session = Depends(get_db),
 ):
     """Verify a PaymentIntent succeeded with Stripe and record the dish request."""
-    payment_intent_id = (body.get("paymentIntentId") or "").strip()
+    payment_intent_id = (body.paymentIntentId or "").strip()
     if not payment_intent_id:
         raise HTTPException(status_code=400, detail="Missing paymentIntentId")
 
@@ -111,6 +115,14 @@ def confirm_payment(
 
     if intent.status != "succeeded":
         raise HTTPException(status_code=400, detail="Payment not completed")
+
+    # Set receipt_email if provided (triggers Stripe email receipt)
+    receipt_email = (body.email or "").strip().lower()
+    if receipt_email:
+        try:
+            stripe.PaymentIntent.modify(payment_intent_id, receipt_email=receipt_email)
+        except Exception:
+            pass  # non-critical — payment still succeeded
 
     dish_name = intent.metadata.get("dish_name", "").strip().title()
     meta_user = intent.metadata.get("user_code", "").strip().lower()
@@ -135,3 +147,16 @@ def confirm_payment(
     db.commit()
 
     return {"status": "ok"}
+
+
+@router.delete("/admin/clear")
+def clear_requests(
+    user_code: str = Depends(_require_logged_in),
+    db: Session = Depends(get_db),
+):
+    """Delete all dish requests. Vivian only."""
+    if user_code != "vivian":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    count = db.query(DishRequest).delete()
+    db.commit()
+    return {"deleted": count}
