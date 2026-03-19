@@ -85,3 +85,6 @@ class DishRequest(Base):
     stripe_payment_intent_id = Column(String(256), nullable=False, unique=True)
 
     created_at = Column(DateTime, nullable=False)
+    # When the chef grants this wish, granted_at is set on ALL requests
+    # sharing the same dish_name (they're treated as one "wish").
+    granted_at = Column(DateTime, nullable=True)
