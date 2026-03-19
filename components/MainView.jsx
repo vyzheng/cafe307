@@ -147,7 +147,17 @@ function MainView({ userCode }) {
         {/* Notes tab: chef note, guest review, and next reservation. We only pass currentMenu.date; NotesTab uses it to look up note and review. */}
         {tab === TAB_IDS.NOTES && (
           <FadeIn delay={300}>
-            <NotesTab menuDates={allMenusForArchive.map((m) => m.date)} userCode={userCode} upcomingMenuDate={upcomingMenu?.date ?? null} />
+            <NotesTab
+              menuDates={[
+                /* Include current menu date even if it's today/future (so notes can be written for the upcoming dinner) */
+                ...(currentMenu?.date && !allMenusForArchive.some((m) => m.date === currentMenu.date)
+                  ? [currentMenu.date]
+                  : []),
+                ...allMenusForArchive.map((m) => m.date),
+              ]}
+              userCode={userCode}
+              upcomingMenuDate={upcomingMenu?.date ?? null}
+            />
           </FadeIn>
         )}
 

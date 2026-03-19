@@ -101,12 +101,11 @@ function DinnerDateNotes({ menuDate, userCode }) {
   };
 
   return (
-    <div style={{ ...mainView.card, padding: 36 }}>
-      <div style={{ textAlign: "center", marginBottom: 24 }}>
-        <div style={{ fontFamily: fonts.body, fontSize: 11, letterSpacing: 2, color: colors.inkLight, textTransform: "uppercase" }}>
-          {menuDate}
-        </div>
-      </div>
+    <div style={{
+      ...mainView.card, padding: 36,
+      borderRadius: "0 0 20px 20px",
+      boxShadow: "0 2px 12px rgba(244,180,195,0.06), 0 4px 24px rgba(74,55,40,0.02)",
+    }}>
 
       {/* VIP Review */}
       <div style={sectionHeaderStyle}>
