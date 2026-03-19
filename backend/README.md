@@ -1,68 +1,98 @@
 # Backend
 
-FastAPI application serving the Cafe 307 API and (in production) the Vite-built frontend.
+FastAPI application serving the Cafe 307 REST API. In production it also serves the Vite-built frontend as a SPA.
 
 ## Structure
 
 ```
 backend/
-  app.py             ← FastAPI app: CORS, routers, static file serving, SPA fallback
-  database.py        ← SQLAlchemy engine, session factory, Base (DATA_DIR env var)
-  models.py          ← ORM models: Menu, ChefNote, VipReview
-  seed.py            ← Seeds default menu, chef note, and VIP review if missing
-  auth.py            ← Shared auth dependencies (require_vivian, require_vlad)
-  requirements.txt   ← Python dependencies
+  app.py           FastAPI app: CORS, routers, SPA fallback
+  database.py      SQLAlchemy engine + session (SQLite)
+  models.py        ORM models
+  schemas.py       Pydantic request/response schemas
+  auth.py          Role-based auth dependencies
+  seed.py          Idempotent DB seeder
+  requirements.txt Python deps
   routes/
-    menus.py         ← CRUD for menus (GET current, GET archive, PUT current, PATCH, POST archive)
-    notes.py         ← CRUD for chef notes and VIP reviews (GET, PUT upsert, DELETE)
+    menus.py       Menu CRUD
+    notes.py       Chef notes + VIP reviews
+    requests.py    Dish requests + Stripe payments
 ```
+
+## API routes
+
+### Menus (`/api/menus`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/current` | public | Current/featured menu |
+| GET | `/archive` | public | All past menus (newest first) |
+| PUT | `/current` | vivian | Replace current menu (archives old) |
+| PATCH | `/{menu_id}` | vivian | Update a menu by ID |
+| POST | `/archive` | vivian | Add a menu to the archive |
+
+### Notes (`/api/notes`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/chef?menuDate=...` | public | Chef note for a date |
+| PUT | `/chef` | vivian | Upsert chef note |
+| DELETE | `/chef` | vivian | Delete chef note |
+| GET | `/vip-review?menuDate=...` | public | VIP review for a date |
+| PUT | `/vip-review` | vlad | Upsert VIP review |
+| DELETE | `/vip-review` | vlad | Delete VIP review |
+
+### Requests (`/api/requests`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | public | All dish requests ranked by count |
+| POST | `/create-payment-intent` | logged-in | Create Stripe PaymentIntent ($1) |
+| POST | `/confirm` | logged-in | Record request after payment + send receipt |
+
+## Authentication
+
+Uses the `X-Reservation-Code` header. Role checks are defined in `auth.py`:
+
+- **vivian** -- chef; can edit menus and chef notes
+- **vlad** -- VIP; can edit reviews
+- **Any valid code** -- can submit dish requests (vivian, vlad, mushu, gelato, caramel, tangyuan)
+- **Public** -- GET endpoints require no header
+
+## Database
+
+SQLite via SQLAlchemy. DB path: `{DATA_DIR}/cafe307.db` (defaults to `./cafe307.db`).
+
+| Model | Table | Purpose |
+|-------|-------|---------|
+| `Menu` | `menus` | Dinner menus with courses (JSON column) |
+| `ChefNote` | `chef_notes` | Chef's notes per menu date |
+| `VipReview` | `vip_reviews` | VIP guest reviews per menu date |
+| `DishRequest` | `dish_requests` | Paid dish requests with Stripe payment ID |
+
+## Stripe integration
+
+The dish request flow uses Stripe PaymentIntents:
+
+1. Frontend calls `POST /api/requests/create-payment-intent` with a dish name
+2. Backend creates a $1 PaymentIntent and returns `clientSecret`
+3. Frontend confirms payment via Stripe Elements (Card, Link, or Apple Pay)
+4. Frontend calls `POST /api/requests/confirm` with the `paymentIntentId`
+5. Backend verifies the payment succeeded, records the request, and optionally sends an email receipt via Stripe
+
+Requires `STRIPE_SECRET_KEY` environment variable.
 
 ## Running locally
 
 ```bash
-# From repo root:
+# From repo root
+pip install -r backend/requirements.txt
+python -m backend.seed                                    # seed data
 uvicorn backend.app:app --host 0.0.0.0 --port 8001 --reload
-
-# Seed initial data (idempotent):
-python -m backend.seed
 ```
-
-## API endpoints
-
-### Menus (`/api/menus`)
-
-| Method | Path               | Auth     | Description                    |
-|--------|--------------------|----------|--------------------------------|
-| GET    | `/current`         | public   | Current/featured menu          |
-| GET    | `/archive`         | public   | All past menus, newest first   |
-| PUT    | `/current`         | vivian   | Replace current menu (archives old) |
-| PATCH  | `/{menu_id}`       | vivian   | Update a menu by ID            |
-| POST   | `/archive`         | vivian   | Add a menu directly to archive |
-
-### Notes (`/api/notes`)
-
-| Method | Path               | Auth     | Description                    |
-|--------|--------------------|----------|--------------------------------|
-| GET    | `/chef?menuDate=…` | public   | Chef note for a date           |
-| PUT    | `/chef`            | vivian   | Upsert chef note               |
-| DELETE | `/chef`            | vivian   | Delete chef note               |
-| GET    | `/vip-review?menuDate=…` | public | VIP review for a date      |
-| PUT    | `/vip-review`      | vlad     | Upsert VIP review              |
-| DELETE | `/vip-review`      | vlad     | Delete VIP review              |
-
-## Authentication
-
-Auth uses the `X-Reservation-Code` header. Roles:
-- **vivian** — can edit menus and chef notes
-- **vlad** — can edit VIP reviews
-- Public endpoints (GET) require no header
-
-## Database
-
-SQLite via SQLAlchemy. The DB file path is `{DATA_DIR}/cafe307.db` where `DATA_DIR` defaults to `.` (repo root). On Render, `DATA_DIR=/data` points to the persistent disk.
 
 ## Production
 
-In production, `app.py` mounts the Vite `dist/` directory:
+In production, `app.py` mounts `dist/` and serves:
 - `/assets/*` and `/music/*` as static files
-- All other non-API paths serve `index.html` (SPA fallback)
+- All other non-API paths return `index.html` (SPA fallback)

@@ -1,26 +1,37 @@
 # Data
 
-Static configuration and API-fallback data.
+Static configuration and API-fallback data used by the frontend.
 
 ## Structure
 
 ```
 data/
-  config/          ← constants and design tokens (always used)
-    theme.js       ← colors, fonts, shared card style
-    animation.js   ← fade durations, stagger delays, slide distance
-    login.js       ← valid login codes, error display timing, login copy
-    tabs.js        ← tab IDs and labels (Menu, Archive, Notes)
-    header.js      ← main view header copy (icon, name, welcome, badge)
-  fallback/        ← static data shown only when the API is unreachable
-    currentMenu.js ← featured menu (date, courses, items)
-    archivedMenus.js ← past menus array
-    chefsNotes.js  ← chef notes by menu date + getChefNote() lookup
-    vipReviews.js  ← VIP reviews by menu date + getVipReview() lookup
+  config/              Always used -- design tokens and UI constants
+  fallback/            Used only when the API is unreachable
 ```
+
+## config/
+
+| File | Exports | Purpose |
+|------|---------|---------|
+| `theme.js` | `colors`, `fonts`, `mainView` | Design tokens: palette, font families, shared card style |
+| `animation.js` | fade durations, stagger delays, slide distance | Timing constants for transitions |
+| `tabs.js` | `TAB_IDS`, `mainViewTabs` | Tab identifiers and labels (Menu, Archive, Notes, Requests) |
+| `roles.js` | `canEditChef`, `canEditReview`, `canAddMenu`, `canEditMenu` | Role-based permission checks |
+| `login.js` | valid codes, error timing, login copy | Login screen configuration |
+| `header.js` | icon, name, welcome text, badge | Main view header copy |
+
+## fallback/
+
+| File | Purpose |
+|------|---------|
+| `currentMenu.js` | Featured menu (date, lunar date, courses with items) |
+| `archivedMenus.js` | Array of past menus |
+| `chefsNotes.js` | Chef notes by menu date + `getChefNote()` lookup |
+| `vipReviews.js` | VIP reviews by menu date + `getVipReview()` lookup |
 
 ## config/ vs fallback/
 
-**config/** files define design tokens and UI constants that are always used regardless of the backend.
+**config/** files are always imported -- they define how the UI looks and behaves regardless of backend availability.
 
-**fallback/** files contain menu and note data that mirrors what's in the database. Components fetch from the API first; on failure they fall back to these static exports. If you update seed data in the backend, keep these files in sync.
+**fallback/** files mirror what is in the database. Components fetch from the API first; on failure they fall back to these static exports. If you update seed data in the backend, keep these files in sync.

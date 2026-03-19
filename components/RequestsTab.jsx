@@ -1,6 +1,15 @@
 /**
  * Dish Requests tab: users pay $1 via inline Stripe payment to request a dish.
  * Most-requested dishes rise to the top.
+ *
+ * Payment flow:
+ *   1. User types a dish name and clicks "Request · $1"
+ *   2. Frontend calls POST /api/requests/create-payment-intent → gets a clientSecret
+ *   3. Stripe <Elements> renders the inline payment form (Card / Link / Wallet tabs)
+ *   4. User completes payment via one of the three methods
+ *   5. On success, frontend calls POST /api/requests/confirm to record the dish
+ *      request in the database and send an optional email receipt
+ *   6. The wishes list re-fetches and the new request appears, ranked by count
  */
 
 import { useState, useEffect, useMemo, Component } from "react";
@@ -15,9 +24,19 @@ import SectionDivider from "./layout/SectionDivider";
 import { colors, fonts, mainView } from "../data/config/theme";
 import { API_BASE, STRIPE_PUBLISHABLE_KEY } from "../src/config";
 
+/*
+  loadStripe is called once at module level so the Stripe.js script is loaded
+  only once, no matter how many times RequestsTab re-renders.
+*/
 const stripePromise = STRIPE_PUBLISHABLE_KEY ? loadStripe(STRIPE_PUBLISHABLE_KEY) : null;
 
-/* Error boundary so Stripe Elements errors don't crash the whole app */
+/*
+  PaymentErrorBoundary — React error boundaries MUST be class components.
+  React does not support getDerivedStateFromError or componentDidCatch in
+  function components, so we use a class here. If the Stripe iframe or any
+  child throws during render, we catch it and show a fallback message instead
+  of crashing the whole app.
+*/
 class PaymentErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -63,14 +82,26 @@ function OrDivider() {
   );
 }
 
-/* Tab labels for payment methods */
+/*
+  Three payment methods, each rendered as a tab:
+    - Card:   manual card number entry via Stripe CardElement
+    - Link:   Stripe Link — clicking the tab auto-triggers a popup for saved
+              payment methods (no form to fill)
+    - Wallet: Apple Pay / Google Pay via the Payment Request API; only shown
+              when the browser supports it
+*/
 const TABS = [
   { id: "card", label: "Card" },
   { id: "link", label: "Link" },
   { id: "wallet", label: " Pay" },
 ];
 
-/* Inner payment form — must be inside <Elements> to use useStripe/useElements */
+/*
+  PaymentForm must be rendered inside <Elements> because useStripe() and
+  useElements() read from the Elements context. Stripe provides no other way
+  to access the card input or confirm a payment — so this component can never
+  be lifted above the <Elements> wrapper.
+*/
 function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -79,7 +110,17 @@ function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel }) {
   const [paymentRequest, setPaymentRequest] = useState(null);
   const [activeTab, setActiveTab] = useState("card");
 
-  /* Apple Pay / Google Pay setup */
+  /*
+    Apple Pay / Google Pay setup via the Payment Request API.
+    stripe.paymentRequest creates a browser-native payment sheet. We call
+    canMakePayment() to check if the user's device supports it (e.g. Safari
+    with a card in Wallet, or Chrome with Google Pay configured). If not
+    supported, the wallet tab is hidden entirely.
+
+    The "paymentmethod" event fires when the user authenticates with Face ID /
+    fingerprint; we then confirm the payment server-side with handleActions:false
+    so the native sheet stays in control of the UX.
+  */
   useEffect(() => {
     if (!stripe) return;
     const pr = stripe.paymentRequest({
@@ -110,6 +151,12 @@ function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel }) {
     });
   }, [stripe, clientSecret, onSuccess]);
 
+  /*
+    cardStyle — Stripe's CardElement renders inside an iframe, so normal CSS
+    can't reach it. Instead we pass a style object that Stripe applies inside
+    the iframe. We match the font, size, and color of the email <input> above
+    so the two fields look like a single unified form.
+  */
   const cardStyle = {
     base: {
       fontFamily: "'Cormorant Garamond', serif",
@@ -347,8 +394,16 @@ function RequestsTab({ userCode }) {
     }
   };
 
+  /*
+    handlePaymentSuccess — called after Stripe confirms the payment on the
+    client side. We POST to /api/requests/confirm so the backend can:
+      1. Verify the PaymentIntent actually succeeded (server-side check)
+      2. Record the dish request in the database
+      3. Send an email receipt if the user provided an email address
+    Even if the confirm call fails (e.g. network error), the payment already
+    went through, so we show a softer success message in that case.
+  */
   const handlePaymentSuccess = async (paymentIntentId) => {
-    /* Tell backend to verify & record the request */
     let confirmOk = false;
     try {
       const res = await fetch(`${API_BASE}/api/requests/confirm`, {
@@ -377,6 +432,12 @@ function RequestsTab({ userCode }) {
     setClientSecret(null);
   };
 
+  /*
+    elementsOptions — passed to <Elements>. The fonts array tells Stripe to
+    load Cormorant Garamond inside its iframe so CardElement text matches the
+    rest of the app. Without this, Stripe falls back to its default sans-serif
+    font and the card input looks out of place.
+  */
   const elementsOptions = useMemo(() => clientSecret ? {
     clientSecret,
     fonts: [{ cssSrc: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap" }],
@@ -489,7 +550,8 @@ function RequestsTab({ userCode }) {
         Wishes
       </div>
 
-      {/* Ranked list */}
+      {/* Wishes list — ranked by request count (backend returns them sorted).
+          Each dish shows its name, who requested it, and the total count. */}
       {requests.length === 0 ? (
         <div style={{
           textAlign: "center", fontFamily: fonts.body, fontSize: 13,
