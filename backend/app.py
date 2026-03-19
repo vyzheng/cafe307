@@ -19,6 +19,14 @@ DIST_DIR = Path(__file__).resolve().parent.parent / "dist"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    # Migrate: add granted_at column if it doesn't exist (create_all doesn't alter existing tables)
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE dish_requests ADD COLUMN granted_at DATETIME"))
+            conn.commit()
+        except Exception:
+            pass  # column already exists
     yield
 
 
