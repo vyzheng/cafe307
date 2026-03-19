@@ -1,10 +1,17 @@
 /**
- * Background music: one shared audio element, track switched by screen (login, menu, archive, add_menu, notes).
+ * Background music: one shared audio element, track switched by screen
+ * (login, menu, archive, add_menu, notes, requests).
  * Playback starts after user interaction to satisfy browser autoplay policies.
  */
 
 import { createContext, useContext, useRef, useCallback } from "react";
 
+/*
+  TRACK_MAP — maps each screen name to a Ragnarok Online soundtrack file.
+  Each screen has its own BGM so navigating between views feels like moving
+  through different areas of a game world. Some screens share the same track
+  (e.g. requests reuses the archive/Lutie theme).
+*/
 const TRACK_MAP = {
   login: "login_ragnarokonline_title.mp3",
   menu: "currentMenu_ragnarokonline_prontera.mp3",
@@ -17,9 +24,18 @@ const TRACK_MAP = {
 const MusicContext = createContext(null);
 
 export function MusicProvider({ children }) {
+  /*
+    Singleton audio element via useRef — we keep a single <audio> instance
+    alive for the entire app lifetime. useRef (not useState) because changing
+    the audio source shouldn't trigger a re-render; we just need a stable
+    reference that persists across renders.
+    currentTrackRef tracks which track key is loaded so setTrack can skip
+    redundant loads when the user navigates to the same screen.
+  */
   const audioRef = useRef(null);
   const currentTrackRef = useRef(null);
 
+  /* Lazily create the Audio element on first use */
   const getAudio = useCallback(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio();
@@ -28,11 +44,19 @@ export function MusicProvider({ children }) {
     return audioRef.current;
   }, []);
 
+  /*
+    setTrack — switches the background music to the track for the given screen.
+    Skips if the requested track is already playing (avoids restarting the same
+    song when a component re-renders). The .catch(() => {}) at the end
+    suppresses the expected DOMException that browsers throw when autoplay is
+    blocked — the music will start on the next user interaction via tryPlay.
+  */
   const setTrack = useCallback((trackKey) => {
     const filename = TRACK_MAP[trackKey];
     if (!filename) return;
     const audio = getAudio();
     const src = `/music/${filename}`;
+    /* Skip if we're already playing this track */
     if (currentTrackRef.current === trackKey && audio.src && audio.src.endsWith(filename)) {
       return;
     }
@@ -40,11 +64,19 @@ export function MusicProvider({ children }) {
     audio.src = src;
     audio.load();
     const p = audio.play();
+    /* Suppress autoplay rejection — browser may block play() before user gesture */
     if (p && typeof p.catch === "function") {
       p.catch(() => {});
     }
   }, [getAudio]);
 
+  /*
+    tryPlay — called from event handlers (e.g. onFocus, onClick) to resume
+    playback after a user interaction. Browsers block audio.play() until the
+    user has interacted with the page (autoplay policy); calling tryPlay from
+    a click/focus handler satisfies that requirement. The .catch(() => {})
+    suppresses any remaining rejections gracefully.
+  */
   const tryPlay = useCallback(() => {
     const audio = getAudio();
     if (audio.src) {
