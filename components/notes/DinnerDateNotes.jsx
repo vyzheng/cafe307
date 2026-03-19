@@ -1,6 +1,8 @@
 /**
- * Per-date card with VIP Review and Chef's Notes sections.
- * Fetches from API; falls back to static data.
+ * Per-date card rendered inside the Notes accordion. Shows VIP Review and
+ * Chef's Notes sections for one menu date. Data is fetched from the API on
+ * mount; on failure, falls back to the static data in data/fallback/.
+ * Authorized users see inline Edit/Delete actions (role checks via roles.js).
  */
 import { useState, useEffect, useCallback } from "react";
 import { colors, fonts, mainView } from "../../data/config/theme";

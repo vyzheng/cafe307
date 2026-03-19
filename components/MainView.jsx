@@ -59,11 +59,14 @@ function MainView({ userCode }) {
     refetchArchive();
   }, []);
 
+  /* Switch background music whenever the active tab changes, so each
+     section of the app has its own soundtrack (see MusicContext TRACK_MAP). */
   useEffect(() => {
     setTrack(tab);
   }, [tab, setTrack]);
 
-  /* Tabs to show: base tabs; add "Add menu" when userCode is vivian. */
+  /* Tabs to show: base tabs (Menu, Archive, Notes, Requests); append
+     the short-labelled "Add" tab when the user has chef permissions. */
   const tabs = canAddMenu(userCode) ? [...mainViewTabs, { id: TAB_IDS.ADD_MENU, label: "Add", cn: "新増" }] : mainViewTabs;
 
   /* When vivian clicks Edit on an archive row, we open Add menu tab with this menu. */
@@ -161,6 +164,7 @@ function MainView({ userCode }) {
           </FadeIn>
         )}
 
+        {/* Requests tab: dish wish list with $1 Stripe payments and star-toggle granting. */}
         {tab === TAB_IDS.REQUESTS && (
           <FadeIn delay={300}>
             <RequestsTab userCode={userCode} />

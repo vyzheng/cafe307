@@ -1,6 +1,10 @@
 /**
- * Tab configuration for the main dashboard (Menu, Archive, Notes).
- * MainView and TabBar use this so tab ids and labels live in one place.
+ * Tab configuration for the main dashboard.
+ * MainView and TabBar import these so tab ids and labels live in one place.
+ *
+ * mainViewTabs contains the base tabs visible to all users (Menu, Archive,
+ * Notes, Requests). The "Add" tab is appended dynamically by MainView
+ * when the user has chef permissions (see roles.js canAddMenu).
  */
 
 export const TAB_IDS = {

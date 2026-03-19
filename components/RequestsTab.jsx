@@ -83,12 +83,13 @@ function OrDivider() {
 }
 
 /*
-  Three payment methods, each rendered as a tab:
+  Three payment method tabs:
     - Card:   manual card number entry via Stripe CardElement
-    - Link:   Stripe Link — clicking the tab auto-triggers a popup for saved
-              payment methods (no form to fill)
+    - Link:   Stripe Link — selecting this tab shows the LinkAuthenticationElement
+              which auto-triggers a popup for saved payment methods, providing a
+              one-tap checkout experience for returning Stripe Link users
     - Wallet: Apple Pay / Google Pay via the Payment Request API; only shown
-              when the browser supports it
+              when the browser/device supports it (canMakePayment check)
 */
 const TABS = [
   { id: "card", label: "Card" },
@@ -296,6 +297,9 @@ function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel }) {
             border: "1px solid rgba(232,152,171,0.15)",
             background: "rgba(255,255,255,0.5)",
           }}>
+            {/* Optional email field for receipt — if the user enters an
+                address here, the backend sends a confirmation email after
+                payment succeeds. Not required; left blank it's just skipped. */}
             <div style={{ padding: "14px 14px", display: "flex", alignItems: "center" }}>
               <span style={{
                 width: 19, height: 17, display: "inline-flex", alignItems: "center",
@@ -445,6 +449,12 @@ function RequestsTab({ userCode }) {
     setClientSecret(null);
   };
 
+  /*
+    handleGrant — toggles the "granted" flag on a wish. Only vivian/vlad
+    can see the star icon; clicking it calls POST /api/requests/grant which
+    flips the granted boolean. A granted wish shows a corner ribbon and a
+    filled gold star instead of the dimmed outline.
+  */
   const handleGrant = async (dishName) => {
     try {
       await fetch(`${API_BASE}/api/requests/grant`, {
@@ -610,7 +620,8 @@ function RequestsTab({ userCode }) {
                     Granted
                   </div>
                 )}
-                {/* Dish name + star */}
+                {/* Dish name + star toggle (visible to vivian/vlad only).
+                    Star is dimmed + grayscale when ungranted, gold with glow when granted. */}
                 <div style={{
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 }}>

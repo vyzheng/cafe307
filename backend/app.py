@@ -13,25 +13,38 @@ from backend.routes.menus import router as menus_router
 from backend.routes.notes import router as notes_router
 from backend.routes.requests import router as requests_router
 
+# In production, the Vite build output lives in dist/ at the repo root.
+# app.py serves it as a SPA fallback so the entire app is one deployment.
 DIST_DIR = Path(__file__).resolve().parent.parent / "dist"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """
+    Startup hook: create tables and run lightweight migrations.
+
+    SQLAlchemy's create_all only creates missing *tables* -- it never
+    alters existing ones. So when we add a new column (like granted_at)
+    to a model, we need an explicit ALTER TABLE. The try/except pattern
+    is safe because the ALTER fails silently if the column already exists.
+    """
     Base.metadata.create_all(bind=engine)
-    # Migrate: add granted_at column if it doesn't exist (create_all doesn't alter existing tables)
+
+    # Auto-migration: add granted_at to dish_requests for the star toggle feature.
+    # This runs on every startup but is a no-op after the first successful ALTER.
     from sqlalchemy import text
     with engine.connect() as conn:
         try:
             conn.execute(text("ALTER TABLE dish_requests ADD COLUMN granted_at DATETIME"))
             conn.commit()
         except Exception:
-            pass  # column already exists
+            pass  # column already exists -- expected on subsequent startups
     yield
 
 
 app = FastAPI(title="Cafe 307 API", lifespan=lifespan)
 
+# CORS: allow the Vite dev server locally, plus the production domain if set.
 allowed_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
