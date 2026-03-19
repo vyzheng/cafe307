@@ -1,6 +1,7 @@
 /**
- * Header for the main dashboard: logo, "Cafe 307", "Welcome back", and badge.
- * No props; used at the top of MainView.
+ * Header for the main dashboard: logo, "Cafe 307", "Welcome back", badge,
+ * and a speaker icon to mute/unmute background music (via MusicContext).
+ * No props; reads header copy from config and music state from context.
  */
 
 import { colors, fonts } from "../../data/config/theme";
@@ -22,7 +23,8 @@ function MainViewHeader() {
         <div style={{ padding: "6px 14px", background: "rgba(232,224,240,0.3)", borderRadius: 20, fontFamily: fonts.jp, fontSize: 9, color: colors.pinkDeep, letterSpacing: 1 }}>
           {mainViewHeader.badge}
         </div>
-        {/* Sound toggle */}
+        {/* Sound toggle: speaker icon next to badge; muted state dims opacity.
+            Placed in header so it's accessible from any tab. */}
         <span
           onClick={toggleMute}
           style={{

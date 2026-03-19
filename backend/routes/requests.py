@@ -1,4 +1,10 @@
-"""Dish requests API: pay $1 via Stripe to request a dish. Most-requested rise to the top."""
+"""
+Dish requests API: pay $1 via Stripe to request a dish.
+
+Guests pay $1 to vote for a dish they want on a future menu. Requests are
+grouped by dish name and ranked by total vote count. Vivian or Vlad can
+"grant" a wish (star toggle), and Vivian can clear all requests.
+"""
 import os
 from datetime import datetime
 from typing import Optional
@@ -16,21 +22,29 @@ router = APIRouter(prefix="/api/requests", tags=["requests"])
 
 stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
 
+# Every guest who can log in to Cafe 307. This set is checked on
+# payment and grant endpoints to ensure only known guests participate.
 VALID_CODES = {"vivian", "vlad", "mushu", "gelato", "caramel", "tangyuan"}
 
 
+# ---- Pydantic request bodies ----
+# These replace raw dict access for type safety and automatic 422 validation.
+
 class CreatePaymentIntentBody(BaseModel):
+    """Body for creating a Stripe PaymentIntent."""
     dishName: str
 
 
 class ConfirmPaymentBody(BaseModel):
+    """Body for confirming payment after Stripe client-side flow completes."""
     paymentIntentId: str
-    email: Optional[str] = None
+    email: Optional[str] = None  # optional receipt email; triggers Stripe email receipt
 
 
 def _require_logged_in(
     x_reservation_code: Optional[str] = Header(default=None, alias="X-Reservation-Code"),
 ) -> str:
+    """Verify the caller is any valid guest (not role-specific like auth.py)."""
     code = (x_reservation_code or "").strip().lower()
     if code not in VALID_CODES:
         raise HTTPException(status_code=403, detail="Forbidden")
@@ -43,7 +57,8 @@ def list_requests(db: Session = Depends(get_db)):
     from sqlalchemy import distinct
     from collections import defaultdict
 
-    # Get counts
+    # Three queries build the response: counts, requesters, and grant status.
+    # Kept separate for clarity rather than one complex join.
     count_results = (
         db.query(
             DishRequest.dish_name,
@@ -64,7 +79,8 @@ def list_requests(db: Session = Depends(get_db)):
     for row in requester_rows:
         requesters[row.dish_name].append(row.user_code)
 
-    # Check granted status per dish (if any request for that dish has granted_at)
+    # A dish is "granted" if any of its requests has a non-null granted_at.
+    # We use max() so a single non-null value marks the whole dish as granted.
     granted_rows = (
         db.query(DishRequest.dish_name, func.max(DishRequest.granted_at).label("granted_at"))
         .group_by(DishRequest.dish_name)
@@ -125,13 +141,16 @@ def confirm_payment(
     if intent.status != "succeeded":
         raise HTTPException(status_code=400, detail="Payment not completed")
 
-    # Set receipt_email if provided (triggers Stripe email receipt)
+    # If the guest provided an email, attach it to the PaymentIntent so
+    # Stripe sends them an automatic email receipt. This is done post-payment
+    # because the email is collected on the confirmation screen, not at
+    # PaymentIntent creation time. Failure here is non-critical.
     receipt_email = (body.email or "").strip().lower()
     if receipt_email:
         try:
             stripe.PaymentIntent.modify(payment_intent_id, receipt_email=receipt_email)
         except Exception:
-            pass  # non-critical — payment still succeeded
+            pass  # payment already succeeded; receipt is best-effort
 
     dish_name = intent.metadata.get("dish_name", "").strip().title()
     meta_user = intent.metadata.get("user_code", "").strip().lower()
@@ -163,7 +182,13 @@ def clear_requests(
     user_code: str = Depends(_require_logged_in),
     db: Session = Depends(get_db),
 ):
-    """Delete all dish requests. Vivian only."""
+    """
+    Delete ALL dish requests. Vivian-only admin endpoint.
+
+    Uses a secondary role check (beyond _require_logged_in) because this
+    is a destructive operation that only the chef should perform -- e.g.
+    after a menu cycle ends and granted wishes are cleared out.
+    """
     if user_code != "vivian":
         raise HTTPException(status_code=403, detail="Forbidden")
     count = db.query(DishRequest).delete()
@@ -172,6 +197,7 @@ def clear_requests(
 
 
 class GrantBody(BaseModel):
+    """Body for the grant/ungrant toggle endpoint."""
     dishName: str
 
 
@@ -181,28 +207,35 @@ def grant_wish(
     user_code: str = Depends(_require_logged_in),
     db: Session = Depends(get_db),
 ):
-    """Toggle granted status for a dish. Only vivian or vlad can grant."""
+    """
+    Toggle the "granted" star on a dish wish.
+
+    Granting marks ALL requests for that dish_name with granted_at (since
+    they represent the same collective wish). Toggling again clears it.
+    Only vivian (chef) and vlad (VIP) can grant wishes.
+    """
     if user_code not in ("vivian", "vlad"):
         raise HTTPException(status_code=403, detail="Forbidden")
     dish_name = body.dishName.strip().title()
     if not dish_name:
         raise HTTPException(status_code=400, detail="Missing dish name")
 
-    # Check if already granted
+    # Toggle logic: if any request for this dish is already granted, ungrant all;
+    # otherwise grant all. This treats all requests for the same dish as one wish.
     first = db.query(DishRequest).filter(
         DishRequest.dish_name == dish_name,
         DishRequest.granted_at.isnot(None),
     ).first()
 
     if first:
-        # Ungrant — clear granted_at on all requests for this dish
+        # Ungrant -- clear granted_at on all requests for this dish
         db.query(DishRequest).filter(DishRequest.dish_name == dish_name).update(
             {"granted_at": None}
         )
         db.commit()
         return {"granted": False}
     else:
-        # Grant — set granted_at on all requests for this dish
+        # Grant -- set granted_at on all requests for this dish
         now = datetime.utcnow()
         db.query(DishRequest).filter(DishRequest.dish_name == dish_name).update(
             {"granted_at": now}

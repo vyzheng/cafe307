@@ -3,4 +3,7 @@
  * Default port 8001 to avoid conflict with other apps on 8000.
  */
 export const API_BASE = import.meta.env.VITE_API_BASE ?? "";
+/* Stripe publishable key for the RequestsTab inline payment form.
+   Without this key, the Stripe Elements form will not render and dish
+   requests are effectively disabled. */
 export const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? "";

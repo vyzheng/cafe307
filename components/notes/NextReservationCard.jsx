@@ -1,7 +1,8 @@
 /**
- * "Next Reservation" card: shows the upcoming dinner date, party size, and
- * confirmation badge. If menuDate is a valid future date, displays the full
- * weekday + date; otherwise falls back to "Some Thursday".
+ * "Next Reservation" card pinned to the top of the Notes tab. Shows the
+ * upcoming dinner date (with full weekday), party size, and an
+ * "always confirmed" badge. If no upcoming menu date is available, falls
+ * back to "Some Thursday" so the card still renders rather than disappearing.
  */
 
 import { colors, fonts, mainView } from "../../data/config/theme";

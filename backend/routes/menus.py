@@ -22,6 +22,7 @@ def _row_to_menu(row: Menu) -> dict:
 
 
 def _resolve_lunar(menu: MenuIn) -> str:
+    """Accept either camelCase (frontend) or snake_case (Python) lunar date field."""
     return menu.lunarDate or menu.lunar_date or ""
 
 

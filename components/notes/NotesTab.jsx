@@ -1,6 +1,9 @@
 /**
- * Notes tab: next reservation card at top, then one collapsible card per
- * menu date (latest date open by default, older dates collapsed).
+ * Notes tab: next reservation info at top, then a collapsible accordion of
+ * per-date note cards. The latest date starts expanded; older dates are
+ * collapsed with a "tap to expand" hint. Only one date can be open at a
+ * time (clicking a second header closes the first), keeping the view tidy
+ * as the number of past menus grows.
  */
 import { useState } from "react";
 import PropTypes from "prop-types";
@@ -9,7 +12,9 @@ import NextReservationCard from "./NextReservationCard";
 import { colors, fonts } from "../../data/config/theme";
 
 function NotesTab({ menuDates, userCode, upcomingMenuDate }) {
-  /* Latest date (first in list) starts open, rest collapsed */
+  /* Accordion state: only one date open at a time.
+     Latest date (first in list) starts expanded so the user sees
+     current notes immediately. Clicking the same header collapses it. */
   const [openDate, setOpenDate] = useState(menuDates[0] ?? null);
 
   const toggleDate = (date) => {

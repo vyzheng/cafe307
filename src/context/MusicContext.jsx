@@ -1,7 +1,17 @@
 /**
- * Background music: one shared audio element, track switched by screen
- * (login, menu, archive, add_menu, notes, requests).
- * Playback starts after user interaction to satisfy browser autoplay policies.
+ * Background music provider and useMusic hook.
+ *
+ * One shared Audio element, track switched by screen (login, menu, archive,
+ * add_menu, notes, requests). Playback starts after user interaction to
+ * satisfy browser autoplay policies.
+ *
+ * Exports:
+ *   MusicProvider  -- wraps the app; owns the singleton Audio element
+ *   useMusic()     -- hook returning { setTrack, tryPlay, toggleMute, muted }
+ *
+ * The toggleMute function pauses/resumes audio and flips the muted flag.
+ * Sound toggle buttons in MainViewHeader and LoginPage call toggleMute so
+ * the user can silence music from either screen.
  */
 
 import { createContext, useContext, useRef, useCallback, useState } from "react";

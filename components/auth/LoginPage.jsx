@@ -19,7 +19,10 @@ import { colors, fonts } from "../../data/config/theme";
 import { VALID_LOGIN_CODES, ERROR_DISPLAY_MS, LOGIN_COPY } from "../../data/config/login";
 import { useMusic } from "../../src/context/MusicContext";
 
-/* Small sound toggle for login page */
+/* Small speaker icon shown inline next to the Japanese subtitle on the
+   login card, so users can mute/unmute the title screen music before
+   they even log in. Separate from the header toggle which only appears
+   post-login. */
 function SoundToggle({ style }) {
   const { toggleMute, muted } = useMusic();
   return (
