@@ -64,7 +64,7 @@ function MainView({ userCode }) {
   }, [tab, setTrack]);
 
   /* Tabs to show: base tabs; add "Add menu" when userCode is vivian. */
-  const tabs = canAddMenu(userCode) ? [...mainViewTabs, { id: TAB_IDS.ADD_MENU, label: "Add menu", cn: "新増" }] : mainViewTabs;
+  const tabs = canAddMenu(userCode) ? [...mainViewTabs, { id: TAB_IDS.ADD_MENU, label: "Add", cn: "新増" }] : mainViewTabs;
 
   /* When vivian clicks Edit on an archive row, we open Add menu tab with this menu. */
   const [editingMenu, setEditingMenu] = useState(null);
