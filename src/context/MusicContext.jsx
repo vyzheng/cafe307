@@ -4,7 +4,7 @@
  * Playback starts after user interaction to satisfy browser autoplay policies.
  */
 
-import { createContext, useContext, useRef, useCallback } from "react";
+import { createContext, useContext, useRef, useCallback, useState } from "react";
 
 /*
   TRACK_MAP — maps each screen name to a Ragnarok Online soundtrack file.
@@ -34,6 +34,7 @@ export function MusicProvider({ children }) {
   */
   const audioRef = useRef(null);
   const currentTrackRef = useRef(null);
+  const [muted, setMuted] = useState(false);
 
   /* Lazily create the Audio element on first use */
   const getAudio = useCallback(() => {
@@ -63,12 +64,15 @@ export function MusicProvider({ children }) {
     currentTrackRef.current = trackKey;
     audio.src = src;
     audio.load();
-    const p = audio.play();
-    /* Suppress autoplay rejection — browser may block play() before user gesture */
-    if (p && typeof p.catch === "function") {
-      p.catch(() => {});
+    /* Don't auto-play if muted */
+    if (!muted) {
+      const p = audio.play();
+      /* Suppress autoplay rejection — browser may block play() before user gesture */
+      if (p && typeof p.catch === "function") {
+        p.catch(() => {});
+      }
     }
-  }, [getAudio]);
+  }, [getAudio, muted]);
 
   /*
     tryPlay — called from event handlers (e.g. onFocus, onClick) to resume
@@ -79,13 +83,27 @@ export function MusicProvider({ children }) {
   */
   const tryPlay = useCallback(() => {
     const audio = getAudio();
-    if (audio.src) {
+    if (audio.src && !muted) {
       audio.play().catch(() => {});
     }
+  }, [getAudio, muted]);
+
+  /* Toggle mute — pauses/resumes the audio and flips the muted flag */
+  const toggleMute = useCallback(() => {
+    const audio = getAudio();
+    setMuted((prev) => {
+      const next = !prev;
+      if (next) {
+        audio.pause();
+      } else if (audio.src) {
+        audio.play().catch(() => {});
+      }
+      return next;
+    });
   }, [getAudio]);
 
   return (
-    <MusicContext.Provider value={{ setTrack, tryPlay }}>
+    <MusicContext.Provider value={{ setTrack, tryPlay, toggleMute, muted }}>
       {children}
     </MusicContext.Provider>
   );
