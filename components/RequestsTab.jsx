@@ -71,7 +71,7 @@ const TABS = [
 ];
 
 /* Inner payment form — must be inside <Elements> to use useStripe/useElements */
-function PaymentForm({ clientSecret, onSuccess, onCancel }) {
+function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel }) {
   const stripe = useStripe();
   const elements = useElements();
   const [paying, setPaying] = useState(false);
@@ -114,6 +114,7 @@ function PaymentForm({ clientSecret, onSuccess, onCancel }) {
     base: {
       fontFamily: "'Cormorant Garamond', serif",
       fontSize: "13px",
+      fontWeight: "400",
       color: "#4A3728",
       letterSpacing: "0.5px",
       "::placeholder": { color: "#9B8B7A" },
@@ -155,7 +156,28 @@ function PaymentForm({ clientSecret, onSuccess, onCancel }) {
           return (
             <div
               key={tab.id}
-              onClick={() => !paying && setActiveTab(tab.id)}
+              onClick={() => {
+                if (paying) return;
+                setActiveTab(tab.id);
+                if (tab.id === "link" && stripe) {
+                  setPaying(true);
+                  setPayError(null);
+                  stripe.confirmPayment({
+                    clientSecret,
+                    confirmParams: {
+                      payment_method: { type: "link" },
+                    },
+                    redirect: "if_required",
+                  }).then(({ error, paymentIntent }) => {
+                    if (error) {
+                      setPayError(error.message);
+                      setPaying(false);
+                    } else if (paymentIntent) {
+                      onSuccess(paymentIntent.id);
+                    }
+                  });
+                }
+              }}
               style={{
                 flex: 1, padding: "11px 0", textAlign: "center",
                 fontFamily: fonts.body, fontSize: 12, letterSpacing: 1.2,
@@ -195,64 +217,53 @@ function PaymentForm({ clientSecret, onSuccess, onCancel }) {
         </div>
       )}
 
-      {/* Tab content: Stripe Link — one-tap green button */}
+      {/* Tab content: Stripe Link — auto-triggers on tab click */}
       {activeTab === "link" && (
-        <button
-          type="button"
-          disabled={paying || !stripe}
-          onClick={async () => {
-            if (!stripe) return;
-            setPaying(true);
-            setPayError(null);
-            const { error, paymentIntent } = await stripe.confirmPayment({
-              clientSecret,
-              confirmParams: {
-                payment_method: { type: "link" },
-              },
-              redirect: "if_required",
-            });
-            if (error) {
-              setPayError(error.message);
-              setPaying(false);
-            } else if (paymentIntent) {
-              onSuccess(paymentIntent.id);
-            }
-          }}
-          style={{
-            display: "flex", alignItems: "center", justifyContent: "center",
-            gap: 8, width: "100%", padding: "14px 0", border: "none",
-            background: "#33C252", borderRadius: 12, cursor: "pointer",
-            transition: "all 0.3s", opacity: paying ? 0.6 : 1,
-          }}
-        >
-          {paying ? (
-            <span style={{ fontFamily: fonts.body, fontSize: 14, color: "#fff", letterSpacing: 1 }}>
-              Processing...
-            </span>
-          ) : (
-            <>
-              <span style={{ fontFamily: fonts.body, fontSize: 14, color: "#fff", letterSpacing: 1 }}>
-                Pay with
-              </span>
-              <svg width="40" height="18" viewBox="0 0 40 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="9" cy="9" r="8" fill="#fff"/>
-                <path d="M6 9l2 2 4-4" stroke="#33C252" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                <text x="20" y="13.5" fontFamily="Arial, sans-serif" fontSize="13" fontWeight="700" fill="#fff">link</text>
-              </svg>
-            </>
-          )}
-        </button>
+        <div style={{
+          textAlign: "center", padding: "16px 0",
+          fontFamily: fonts.body, fontSize: 12, color: colors.inkLight,
+          fontStyle: "italic",
+        }}>
+          {paying ? "Opening Link..." : ""}
+        </div>
       )}
 
       {/* Tab content: Card */}
       {activeTab === "card" && (
         <form onSubmit={handlePay}>
           <div style={{
-            padding: "14px 14px", borderRadius: 14,
+            borderRadius: 14,
             border: "1px solid rgba(232,152,171,0.15)",
             background: "rgba(255,255,255,0.5)",
           }}>
-            <CardElement options={{ style: cardStyle, hidePostalCode: true, disableLink: true }} />
+            <div style={{ padding: "14px 14px", display: "flex", alignItems: "center" }}>
+              <span style={{
+                width: 19, height: 17, display: "inline-flex", alignItems: "center",
+                justifyContent: "center", flexShrink: 0, marginRight: 6, fontSize: 14,
+              }}>✉️</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
+                disabled={paying}
+                style={{
+                  flex: 1, padding: 0, border: "none",
+                  background: "transparent",
+                  fontFamily: "'Cormorant Garamond', serif", fontSize: "13.5px",
+                  fontWeight: 300,
+                  color: "#4A3728", letterSpacing: "0.5px",
+                  outline: "none", boxSizing: "border-box",
+                  opacity: paying ? 0.5 : 1,
+                  height: "15.6px", lineHeight: "15.6px",
+                }}
+              />
+              <style>{`input[type="email"]::placeholder { color: #9B8B7A !important; }`}</style>
+            </div>
+            <div style={{ height: 1, background: "rgba(232,152,171,0.15)" }} />
+            <div style={{ padding: "14px 14px" }}>
+              <CardElement options={{ style: cardStyle, hidePostalCode: true, disableLink: true }} />
+            </div>
           </div>
           <button
             type="submit"
@@ -285,6 +296,8 @@ function PaymentForm({ clientSecret, onSuccess, onCancel }) {
 
 PaymentForm.propTypes = {
   clientSecret: PropTypes.string.isRequired,
+  email: PropTypes.string.isRequired,
+  setEmail: PropTypes.func.isRequired,
   onSuccess: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
 };
@@ -322,7 +335,7 @@ function RequestsTab({ userCode }) {
           "Content-Type": "application/json",
           "X-Reservation-Code": userCode,
         },
-        body: JSON.stringify({ dishName: trimmed, email: email.trim() || undefined }),
+        body: JSON.stringify({ dishName: trimmed }),
       });
       if (!res.ok) throw new Error("Failed to create payment");
       const data = await res.json();
@@ -336,28 +349,38 @@ function RequestsTab({ userCode }) {
 
   const handlePaymentSuccess = async (paymentIntentId) => {
     /* Tell backend to verify & record the request */
+    let confirmOk = false;
     try {
-      await fetch(`${API_BASE}/api/requests/confirm`, {
+      const res = await fetch(`${API_BASE}/api/requests/confirm`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-Reservation-Code": userCode,
         },
-        body: JSON.stringify({ paymentIntentId }),
+        body: JSON.stringify({ paymentIntentId, email: email.trim() || undefined }),
       });
-    } catch { /* best-effort — webhook is backup */ }
+      confirmOk = res.ok;
+    } catch { /* network error */ }
     setClientSecret(null);
-    setSuccessMsg(`✨ ${dishName.trim()} requested!`);
     setDishName("");
+    setEmail("");
+    if (confirmOk) {
+      setSuccessMsg(`✨ ${dishName.trim()} requested!`);
+    } else {
+      setSuccessMsg(`✨ Payment received — your wish will appear shortly.`);
+    }
     fetchRequests();
-    setTimeout(() => setSuccessMsg(null), 3000);
+    setTimeout(() => setSuccessMsg(null), 4000);
   };
 
   const handleCancel = () => {
     setClientSecret(null);
   };
 
-  const elementsOptions = useMemo(() => clientSecret ? { clientSecret } : null, [clientSecret]);
+  const elementsOptions = useMemo(() => clientSecret ? {
+    clientSecret,
+    fonts: [{ cssSrc: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap" }],
+  } : null, [clientSecret]);
 
   return (
     <div style={{ ...mainView.card, padding: "48px 36px", overflow: "hidden" }}>
@@ -404,22 +427,6 @@ function RequestsTab({ userCode }) {
             opacity: clientSecret ? 0.5 : 1,
           }}
         />
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !clientSecret) handleRequest(); }}
-          placeholder="Email for receipt (optional)"
-          disabled={!!clientSecret}
-          style={{
-            width: "100%", padding: "12px 0", border: "none",
-            borderBottom: `1px solid rgba(232,152,171,0.3)`,
-            background: "transparent", fontFamily: fonts.body, fontSize: 13,
-            color: colors.ink, textAlign: "center", letterSpacing: 1,
-            outline: "none", boxSizing: "border-box",
-            opacity: clientSecret ? 0.5 : 1, marginTop: 4,
-          }}
-        />
         {!clientSecret && (
           <button
             onClick={handleRequest}
@@ -443,7 +450,7 @@ function RequestsTab({ userCode }) {
         {clientSecret && stripePromise && elementsOptions && (
           <PaymentErrorBoundary onCancel={handleCancel}>
             <Elements stripe={stripePromise} options={elementsOptions}>
-              <PaymentForm clientSecret={clientSecret} onSuccess={handlePaymentSuccess} onCancel={handleCancel} />
+              <PaymentForm clientSecret={clientSecret} email={email} setEmail={setEmail} onSuccess={handlePaymentSuccess} onCancel={handleCancel} />
             </Elements>
           </PaymentErrorBoundary>
         )}

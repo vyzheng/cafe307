@@ -9,13 +9,20 @@ import { API_BASE } from "./config";
  * `detail` message when available.
  */
 export async function apiFetch(path, options = {}) {
+  const { headers: optHeaders, ...rest } = options;
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...options.headers },
-    ...options,
+    ...rest,
+    headers: { "Content-Type": "application/json", ...optHeaders },
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || `Request failed (${res.status})`);
+    const detail = body.detail;
+    const msg = typeof detail === "string"
+      ? detail
+      : Array.isArray(detail)
+        ? detail.map(e => e.msg || JSON.stringify(e)).join("; ")
+        : `Request failed (${res.status})`;
+    throw new Error(msg);
   }
   return res.json();
 }
