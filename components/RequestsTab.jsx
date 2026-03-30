@@ -124,6 +124,15 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
   const [walletReady, setWalletReady] = useState(false);
   const allCardReady = readyCount >= 3; // number, expiry, cvc
 
+  // Delay wallet visibility to let Stripe's internal animation finish offscreen
+  const [walletSettled, setWalletSettled] = useState(false);
+  useEffect(() => {
+    if (walletReady) {
+      const t = setTimeout(() => setWalletSettled(true), 1000);
+      return () => clearTimeout(t);
+    }
+  }, [walletReady]);
+
   // Apple Pay / Google Pay
   useEffect(() => {
     if (!stripe) return;
@@ -255,8 +264,7 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
         {showWallet ? (
           <div style={{
             marginBottom: 16,
-            opacity: walletReady ? 1 : 0,
-            transition: "opacity 0.15s ease",
+            opacity: walletSettled ? 1 : 0,
           }}>
             <PaymentRequestButtonElement
               onReady={() => setWalletReady(true)}
@@ -640,9 +648,9 @@ function RequestsTab({ userCode }) {
               background: "linear-gradient(135deg, rgba(244,180,195,0.2), rgba(232,224,240,0.25))",
               borderRadius: 14, fontFamily: fonts.body, fontSize: 14,
               letterSpacing: 2, color: colors.ink,
-              cursor: dishName.trim() ? "pointer" : "default",
+              cursor: "pointer",
               transition: "all 0.3s",
-              opacity: dishName.trim() ? 1 : 0.5,
+              opacity: 1,
               position: "relative", overflow: "hidden",
             }}
           >
