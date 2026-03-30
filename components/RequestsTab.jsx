@@ -533,7 +533,7 @@ function RequestsTab({ userCode }) {
           value={dishName}
           onChange={(e) => { setDishName(e.target.value); setNudge(false); }}
           onKeyDown={(e) => { if (e.key === "Enter" && !clientSecret) handleRequest(); }}
-          placeholder="Enter dish..."
+          placeholder="Enter dish"
           disabled={!!clientSecret}
           style={{
             width: "100%", padding: "14px 16px",
@@ -551,14 +551,15 @@ function RequestsTab({ userCode }) {
           value={customNote}
           onChange={(e) => { setCustomNote(e.target.value); setNudge(false); }}
           placeholder="Micromanage notes (optional · +$1)"
+
           maxLength={1000}
           disabled={!!clientSecret}
           style={{
-            width: "100%", minHeight: 56, padding: "12px 14px",
+            width: "100%", minHeight: 56, padding: "14px 16px",
             border: `1px solid ${nudge ? "rgba(232,152,171,0.4)" : "rgba(232,152,171,0.15)"}`,
-            borderRadius: 12, background: "rgba(255,255,255,0.4)",
-            fontFamily: fonts.body, fontSize: 13, color: colors.ink,
-            letterSpacing: 0.5, lineHeight: 1.6, resize: "vertical",
+            borderRadius: 12, background: "rgba(255,255,255,0.5)",
+            fontFamily: fonts.body, fontSize: 16, color: colors.ink,
+            letterSpacing: 1, lineHeight: 1.6, resize: "vertical",
             outline: "none", boxSizing: "border-box",
             opacity: clientSecret ? 0.5 : 1,
             transition: "border-color 0.3s",
