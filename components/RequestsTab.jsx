@@ -301,6 +301,7 @@ function RequestsTab({ userCode }) {
   const [requests, setRequests] = useState([]);
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
+  const [paymentKey, setPaymentKey] = useState(0); // increment to remount PaymentForm
   const [confirmDelete, setConfirmDelete] = useState(null); // dish name pending delete
 
   // Pre-fetched PaymentIntent cache
@@ -384,6 +385,7 @@ function RequestsTab({ userCode }) {
     setDishName("");
     setCustomNote("");
     setNudge(false);
+    setPaymentKey((k) => k + 1); // force fresh PaymentForm
     prefetchRef.current = { secret: null, isCustom: false, dishName: "", fetching: false };
     if (confirmOk) {
       setSuccessMsg(`✨ ${dishName.trim()} requested!`);
@@ -540,7 +542,7 @@ function RequestsTab({ userCode }) {
         {/* Payment form — always visible, no intermediate button */}
         {stripePromise && (
           <PaymentErrorBoundary onCancel={handleCancel}>
-            <Elements stripe={stripePromise} options={elementsOptions}>
+            <Elements key={paymentKey} stripe={stripePromise} options={elementsOptions}>
               <PaymentForm
                 dishName={dishName.trim()}
                 customNote={customNote.trim()}
