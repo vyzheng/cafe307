@@ -15,4 +15,4 @@ COPY backend/ backend/
 COPY data/ data/
 COPY --from=frontend /app/dist dist/
 EXPOSE 10000
-CMD python -m backend.seed && uvicorn backend.app:app --host 0.0.0.0 --port ${PORT:-10000}
+CMD python -m backend.seed && python -m backend.migrate_001_custom_requests && uvicorn backend.app:app --host 0.0.0.0 --port ${PORT:-10000}
