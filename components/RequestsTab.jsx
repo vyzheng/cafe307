@@ -633,7 +633,23 @@ function RequestsTab({ userCode }) {
                 borderBottom: i < requests.length - 1
                   ? "1px solid rgba(232,152,171,0.08)" : "none",
                 position: "relative",
+                overflow: "hidden",
               }}>
+                {/* Granted ribbon — V2 Whisper */}
+                {r.granted && (
+                  <div style={{
+                    position: "absolute", top: 12, right: -35,
+                    background: "linear-gradient(135deg, #F4B4C3, #E8E0F0)",
+                    color: colors.ink, fontFamily: fonts.body,
+                    fontSize: 7, fontWeight: 600,
+                    letterSpacing: 1.5, textTransform: "uppercase",
+                    padding: "3px 42px", transform: "rotate(40deg)",
+                    whiteSpace: "nowrap", pointerEvents: "none",
+                    opacity: 0.6,
+                  }}>
+                    Granted
+                  </div>
+                )}
                 {/* Status label above dish name */}
                 <div style={{
                   display: "inline-flex", alignItems: "center", gap: 4,
