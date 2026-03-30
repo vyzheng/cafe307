@@ -476,7 +476,11 @@ function RequestsTab({ userCode }) {
               letterSpacing: 0.5, outline: "none",
             }}
           />
-          <style>{`input[type="email"]::placeholder { color: #9B8B7A !important; }`}</style>
+          <style>{`
+            input[type="email"]::placeholder,
+            input[type="text"]::placeholder,
+            textarea::placeholder { color: #9B8B7A !important; }
+          `}</style>
         </div>
 
         <div style={{
