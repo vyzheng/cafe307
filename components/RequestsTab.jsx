@@ -102,7 +102,15 @@ const TABS = [
   to access the card input or confirm a payment — so this component can never
   be lifted above the <Elements> wrapper.
 */
-function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel, amount }) {
+/*
+  PaymentForm — deferred intent flow.
+  The card form renders INSTANTLY (no clientSecret needed up front).
+  When the user clicks Pay, we:
+    1. Create the PaymentIntent server-side
+    2. Confirm it with the card details already entered
+  Result: zero loading delay — form appears the moment they click Request.
+*/
+function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSuccess, onCancel, amount }) {
   const stripe = useStripe();
   const elements = useElements();
   const [paying, setPaying] = useState(false);
@@ -110,17 +118,7 @@ function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel, amoun
   const [paymentRequest, setPaymentRequest] = useState(null);
   const [activeTab, setActiveTab] = useState("card");
 
-  /*
-    Apple Pay / Google Pay setup via the Payment Request API.
-    stripe.paymentRequest creates a browser-native payment sheet. We call
-    canMakePayment() to check if the user's device supports it (e.g. Safari
-    with a card in Wallet, or Chrome with Google Pay configured). If not
-    supported, the wallet tab is hidden entirely.
-
-    The "paymentmethod" event fires when the user authenticates with Face ID /
-    fingerprint; we then confirm the payment server-side with handleActions:false
-    so the native sheet stays in control of the UX.
-  */
+  // Apple Pay / Google Pay
   useEffect(() => {
     if (!stripe) return;
     const pr = stripe.paymentRequest({
@@ -131,32 +129,29 @@ function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel, amoun
       requestPayerEmail: false,
     });
     pr.canMakePayment().then((result) => {
-      if (result) {
-        setPaymentRequest(pr);
-      }
+      if (result) setPaymentRequest(pr);
     });
     pr.on("paymentmethod", async (ev) => {
-      const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
-        clientSecret,
-        { payment_method: ev.paymentMethod.id },
-        { handleActions: false },
-      );
-      if (confirmError) {
-        ev.complete("fail");
-        setPayError(confirmError.message);
-      } else {
-        ev.complete("success");
-        onSuccess(paymentIntent.id);
-      }
+      // For wallet payments, create intent then confirm
+      try {
+        const res = await fetch(`${API_BASE}/api/requests/create-payment-intent`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Reservation-Code": userCode },
+          body: JSON.stringify({ dishName, isCustom, customNote: isCustom ? customNote : undefined }),
+        });
+        if (!res.ok) { ev.complete("fail"); setPayError("Failed to create payment"); return; }
+        const { clientSecret } = await res.json();
+        const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
+          clientSecret,
+          { payment_method: ev.paymentMethod.id },
+          { handleActions: false },
+        );
+        if (confirmError) { ev.complete("fail"); setPayError(confirmError.message); }
+        else { ev.complete("success"); onSuccess(paymentIntent.id); }
+      } catch { ev.complete("fail"); setPayError("Payment failed"); }
     });
-  }, [stripe, clientSecret, onSuccess]);
+  }, [stripe, amount, dishName, isCustom, customNote, userCode, onSuccess]);
 
-  /*
-    cardStyle — Stripe's CardElement renders inside an iframe, so normal CSS
-    can't reach it. Instead we pass a style object that Stripe applies inside
-    the iframe. We match the font, size, and color of the email <input> above
-    so the two fields look like a single unified form.
-  */
   const cardStyle = {
     base: {
       fontFamily: "'Cormorant Garamond', serif",
@@ -174,6 +169,25 @@ function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel, amoun
     if (!stripe || !elements) return;
     setPaying(true);
     setPayError(null);
+
+    // Step 1: Create PaymentIntent now
+    let clientSecret;
+    try {
+      const res = await fetch(`${API_BASE}/api/requests/create-payment-intent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Reservation-Code": userCode },
+        body: JSON.stringify({ dishName, isCustom, customNote: isCustom ? customNote : undefined }),
+      });
+      if (!res.ok) throw new Error("Failed to create payment");
+      const data = await res.json();
+      clientSecret = data.clientSecret;
+    } catch {
+      setPayError("Something went wrong. Please try again.");
+      setPaying(false);
+      return;
+    }
+
+    // Step 2: Confirm with card already entered
     const card = elements.getElement(CardElement);
     const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
       payment_method: { card },
@@ -186,7 +200,6 @@ function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel, amoun
     }
   };
 
-  /* Which tabs to show — hide wallet tab if not available */
   const visibleTabs = paymentRequest
     ? TABS
     : TABS.filter((t) => t.id !== "wallet");
@@ -203,10 +216,7 @@ function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel, amoun
           return (
             <div
               key={tab.id}
-              onClick={() => {
-                if (paying) return;
-                setActiveTab(tab.id);
-              }}
+              onClick={() => { if (!paying) setActiveTab(tab.id); }}
               style={{
                 flex: 1, padding: "11px 0", textAlign: "center",
                 fontFamily: fonts.body, fontSize: 12, letterSpacing: 1.2,
@@ -227,7 +237,6 @@ function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel, amoun
         })}
       </div>
 
-      {/* Tab content: Apple Pay / Google Pay */}
       {activeTab === "wallet" && paymentRequest && (
         <div style={{ marginBottom: 16 }}>
           <PaymentRequestButtonElement options={{ paymentRequest, style: {
@@ -238,15 +247,13 @@ function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel, amoun
       {activeTab === "wallet" && !paymentRequest && (
         <div style={{
           textAlign: "center", padding: "20px 12px",
-          fontFamily: fonts.body, fontSize: 12, color: colors.inkLight,
-          fontStyle: "italic",
+          fontFamily: fonts.body, fontSize: 12, color: colors.inkLight, fontStyle: "italic",
         }}>
           Apple Pay / Google Pay not available in this browser.
           <br />Try Safari on macOS or Chrome on Android.
         </div>
       )}
 
-      {/* Tab content: Card */}
       {activeTab === "card" && (
         <form onSubmit={handlePay}>
           <div style={{
@@ -254,7 +261,6 @@ function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel, amoun
             border: "1px solid rgba(232,152,171,0.15)",
             background: "rgba(255,255,255,0.5)",
           }}>
-            {/* Email field moved to top of form — persisted in localStorage */}
             <div style={{ padding: "14px 14px" }}>
               <CardElement options={{ style: cardStyle, hidePostalCode: true, disableLink: true }} />
             </div>
@@ -289,9 +295,11 @@ function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel, amoun
 }
 
 PaymentForm.propTypes = {
-  clientSecret: PropTypes.string.isRequired,
+  dishName: PropTypes.string.isRequired,
+  customNote: PropTypes.string,
+  isCustom: PropTypes.bool.isRequired,
+  userCode: PropTypes.string.isRequired,
   email: PropTypes.string.isRequired,
-  setEmail: PropTypes.func.isRequired,
   onSuccess: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
   amount: PropTypes.number,
@@ -305,9 +313,8 @@ function RequestsTab({ userCode }) {
   const [customNote, setCustomNote] = useState("");
   const [nudge, setNudge] = useState(false);
   const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [clientSecret, setClientSecret] = useState(null);
+  const [showPayment, setShowPayment] = useState(false);
   const [successMsg, setSuccessMsg] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null); // dish name pending delete
 
@@ -330,34 +337,13 @@ function RequestsTab({ userCode }) {
   // Derived: is this a micromanage request?
   const hasMicromanage = customNote.trim().length > 0;
 
-  const handleRequest = async () => {
+  const handleRequest = () => {
     const trimmed = dishName.trim();
     if (!trimmed) return;
-    setLoading(true);
     setError(null);
     setSuccessMsg(null);
     setNudge(false);
-    try {
-      const res = await fetch(`${API_BASE}/api/requests/create-payment-intent`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Reservation-Code": userCode,
-        },
-        body: JSON.stringify({
-          dishName: trimmed,
-          isCustom: hasMicromanage,
-          customNote: hasMicromanage ? customNote.trim() : undefined,
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to create payment");
-      const data = await res.json();
-      setClientSecret(data.clientSecret);
-    } catch {
-      setError("Something went wrong. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    setShowPayment(true);
   };
 
   /*
@@ -382,9 +368,8 @@ function RequestsTab({ userCode }) {
       });
       confirmOk = res.ok;
     } catch { /* network error */ }
-    setClientSecret(null);
+    setShowPayment(false);
     setDishName("");
-    setEmail("");
     setCustomNote("");
     setNudge(false);
     if (confirmOk) {
@@ -397,7 +382,7 @@ function RequestsTab({ userCode }) {
   };
 
   const handleCancel = () => {
-    setClientSecret(null);
+    setShowPayment(false);
   };
 
   /*
@@ -441,10 +426,9 @@ function RequestsTab({ userCode }) {
     rest of the app. Without this, Stripe falls back to its default sans-serif
     font and the card input looks out of place.
   */
-  const elementsOptions = useMemo(() => clientSecret ? {
-    clientSecret,
+  const elementsOptions = useMemo(() => ({
     fonts: [{ cssSrc: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap" }],
-  } : null, [clientSecret]);
+  }), []);
 
   return (
     <div style={{ ...mainView.card, padding: "48px 36px", overflow: "hidden" }}>
@@ -508,16 +492,16 @@ function RequestsTab({ userCode }) {
           padding: "12px 16px", marginBottom: 12,
           border: "1px solid rgba(232,152,171,0.15)",
           borderRadius: 12, background: "rgba(255,255,255,0.5)",
-          opacity: clientSecret ? 0.5 : 1,
+          opacity: showPayment ? 0.5 : 1,
         }}>
           <span style={{ fontSize: 13, flexShrink: 0, opacity: 0.6 }}>🍽️</span>
           <input
             type="text"
             value={dishName}
             onChange={(e) => { setDishName(e.target.value); setNudge(false); }}
-            onKeyDown={(e) => { if (e.key === "Enter" && !clientSecret) handleRequest(); }}
+            onKeyDown={(e) => { if (e.key === "Enter" && !showPayment) handleRequest(); }}
             placeholder="Make a wish"
-            disabled={!!clientSecret}
+            disabled={showPayment}
             style={{
               flex: 1, padding: 0, border: "none", background: "transparent",
               fontFamily: fonts.body, fontSize: 14, color: colors.ink,
@@ -531,7 +515,7 @@ function RequestsTab({ userCode }) {
           padding: "12px 16px",
           border: `1px solid ${nudge ? "rgba(232,152,171,0.4)" : "rgba(232,152,171,0.15)"}`,
           borderRadius: 12, background: "rgba(255,255,255,0.5)",
-          opacity: clientSecret ? 0.5 : 1,
+          opacity: showPayment ? 0.5 : 1,
           transition: "border-color 0.3s",
         }}>
           <span style={{ fontSize: 13, flexShrink: 0, opacity: 0.6, marginTop: 1 }}>📝</span>
@@ -540,7 +524,7 @@ function RequestsTab({ userCode }) {
             onChange={(e) => { setCustomNote(e.target.value); setNudge(false); }}
             placeholder="Micromanage (+$1)"
             maxLength={1000}
-            disabled={!!clientSecret}
+            disabled={showPayment}
             style={{
               flex: 1, padding: 0, minHeight: 40, border: "none", background: "transparent",
               fontFamily: fonts.body, fontSize: 14, color: colors.ink,
@@ -570,7 +554,7 @@ function RequestsTab({ userCode }) {
         )}
 
         {/* Submit button — auto-switches between $1 and $2 */}
-        {!clientSecret && !loading && (
+        {!showPayment && (
           <button
             onClick={handleRequest}
             disabled={!dishName.trim()}
@@ -599,32 +583,20 @@ function RequestsTab({ userCode }) {
           </button>
         )}
 
-        {/* Loading shimmer while fetching clientSecret */}
-        {loading && !clientSecret && (
-          <div style={{
-            marginTop: 16, padding: "24px 0", textAlign: "center",
-            background: "rgba(255,255,255,0.3)", borderRadius: 14,
-          }}>
-            <style>{`
-              @keyframes cafe307-pulse {
-                0%, 100% { opacity: 0.4; }
-                50% { opacity: 1; }
-              }
-            `}</style>
-            <div style={{
-              fontFamily: fonts.body, fontSize: 12, color: colors.inkLight,
-              letterSpacing: 1.5, animation: "cafe307-pulse 1.2s ease-in-out infinite",
-            }}>
-              Loading payment...
-            </div>
-          </div>
-        )}
-
-        {/* Inline Stripe payment form */}
-        {clientSecret && stripePromise && elementsOptions && (
+        {/* Inline Stripe payment form — renders instantly, no loading */}
+        {showPayment && stripePromise && (
           <PaymentErrorBoundary onCancel={handleCancel}>
             <Elements stripe={stripePromise} options={elementsOptions}>
-              <PaymentForm clientSecret={clientSecret} email={email} setEmail={setEmail} onSuccess={handlePaymentSuccess} onCancel={handleCancel} amount={hasMicromanage ? 200 : 100} />
+              <PaymentForm
+                dishName={dishName.trim()}
+                customNote={customNote.trim()}
+                isCustom={hasMicromanage}
+                userCode={userCode}
+                email={email}
+                onSuccess={handlePaymentSuccess}
+                onCancel={handleCancel}
+                amount={hasMicromanage ? 200 : 100}
+              />
             </Elements>
           </PaymentErrorBoundary>
         )}
