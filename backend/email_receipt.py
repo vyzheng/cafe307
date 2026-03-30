@@ -58,19 +58,27 @@ def _build_receipt_html(dish_name: str, amount_cents: int, is_custom: bool, cust
             <table width="420" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 2px 16px rgba(232,152,171,0.12);">
               <!-- Header -->
               <tr>
-                <td style="background:linear-gradient(135deg,#F4B4C3,#E8E0F0);padding:28px 24px;text-align:center;">
-                  <div style="font-size:20px;margin-bottom:6px;">🌟</div>
+                <td style="background:linear-gradient(135deg,#F4B4C3,#E8E0F0);padding:32px 24px 28px;text-align:center;">
+                  <div style="font-size:20px;margin-bottom:8px;">🌟</div>
                   <div style="font-family:'Georgia',serif;font-size:18px;color:#4A3728;letter-spacing:3px;font-weight:300;">
                     Cafe 307
                   </div>
-                  <div style="font-family:'Georgia',serif;font-size:9px;color:#4A3728;opacity:0.6;letter-spacing:2px;margin-top:4px;">
+                  <div style="font-family:'Georgia',serif;font-size:9px;color:#4A3728;opacity:0.8;letter-spacing:2px;margin-top:6px;">
                     私人晩ごはん
+                  </div>
+                </td>
+              </tr>
+              <!-- Preview text — shows in email inbox preview -->
+              <tr>
+                <td style="padding:24px 24px 4px;text-align:center;">
+                  <div style="font-family:'Georgia',serif;font-size:13px;color:#4A3728;font-style:italic;">
+                    You made a wish! ✨
                   </div>
                 </td>
               </tr>
               <!-- Receipt title -->
               <tr>
-                <td style="padding:24px 24px 8px;text-align:center;">
+                <td style="padding:12px 24px 8px;text-align:center;">
                   <div style="font-family:'Georgia',serif;font-size:11px;color:#9B8B7A;letter-spacing:3px;text-transform:uppercase;">
                     Receipt
                   </div>
@@ -95,7 +103,7 @@ def _build_receipt_html(dish_name: str, amount_cents: int, is_custom: bool, cust
                 <td style="padding:0 24px;">
                   <table width="100%" cellpadding="0" cellspacing="0">
                     <tr>
-                      <td style="font-family:'Georgia',serif;font-size:13px;color:#9B8B7A;letter-spacing:0.5px;">
+                      <td style="font-family:'Georgia',serif;font-size:13px;color:#9B8B7A;letter-spacing:0.5px;padding-right:12px;">
                         {request_type}
                       </td>
                       <td align="right" style="font-family:'Georgia',serif;font-size:16px;color:#4A3728;font-weight:300;letter-spacing:1px;">
@@ -116,9 +124,9 @@ def _build_receipt_html(dish_name: str, amount_cents: int, is_custom: bool, cust
               <!-- Footer -->
               <tr>
                 <td style="padding:16px 24px 28px;text-align:center;">
-                  <div style="font-family:'Georgia',serif;font-size:11px;color:#9B8B7A;font-style:italic;line-height:1.6;">
-                    Thank you for your wish ✨<br>
-                    The most-requested dishes rise to the top.
+                  <div style="font-family:'Georgia',serif;font-size:11px;color:#9B8B7A;font-style:italic;line-height:1.8;">
+                    Your wish is very important to us. Please hold momentarily.<br>
+                    Visit <a href="https://cafe307.com" style="color:#B47B8A;text-decoration:underline;">cafe307.com</a> to see the latest menu — your wish might be granted ✨
                   </div>
                 </td>
               </tr>
