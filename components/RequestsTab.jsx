@@ -224,6 +224,7 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
             padding: "13px 0", border: "none",
             background: "linear-gradient(135deg, #F4B4C3, #E8E0F0)",
             borderRadius: 12, fontFamily: fonts.body, fontSize: 13,
+            fontWeight: 600,
             letterSpacing: 2, color: colors.ink, cursor: "pointer",
             transition: "all 0.3s", opacity: paying ? 0.6 : allCardReady ? 1 : 0,
           }}
@@ -255,8 +256,8 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
                 ? "linear-gradient(135deg, #00D66F, #00B35B)"
                 : "#000",
               color: "#fff",
-              fontFamily: fonts.body, fontSize: 13, letterSpacing: 2,
-              cursor: "pointer",
+              fontFamily: fonts.body, fontSize: 13, fontWeight: 600,
+              letterSpacing: 2, cursor: "pointer",
               opacity: paying ? 0.5 : 1,
               WebkitAppearance: "none",
             }}
