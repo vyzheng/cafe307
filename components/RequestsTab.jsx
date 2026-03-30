@@ -16,7 +16,7 @@ import { useState, useEffect, useMemo, Component } from "react";
 import PropTypes from "prop-types";
 import { loadStripe } from "@stripe/stripe-js";
 import {
-  Elements, CardElement, LinkAuthenticationElement,
+  Elements, CardElement,
   PaymentRequestButtonElement, useStripe, useElements,
 } from "@stripe/react-stripe-js";
 import FadeIn from "./layout/FadeIn";
@@ -93,7 +93,6 @@ function OrDivider() {
 */
 const TABS = [
   { id: "card", label: "Card" },
-  { id: "link", label: "Link" },
   { id: "wallet", label: " Pay" },
 ];
 
@@ -244,48 +243,6 @@ function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel, amoun
         }}>
           Apple Pay / Google Pay not available in this browser.
           <br />Try Safari on macOS or Chrome on Android.
-        </div>
-      )}
-
-      {/* Tab content: Stripe Link — shows Link auth element + pay button */}
-      {activeTab === "link" && (
-        <div>
-          <div style={{
-            borderRadius: 14,
-            border: "1px solid rgba(232,152,171,0.15)",
-            background: "rgba(255,255,255,0.5)",
-            padding: "14px 14px", marginBottom: 10,
-          }}>
-            <LinkAuthenticationElement />
-          </div>
-          <button
-            type="button"
-            disabled={paying || !stripe}
-            onClick={async () => {
-              if (!stripe) return;
-              setPaying(true);
-              setPayError(null);
-              const { error, paymentIntent } = await stripe.confirmPayment({
-                clientSecret,
-                confirmParams: { return_url: window.location.href },
-                redirect: "if_required",
-              });
-              if (error) {
-                setPayError(error.message);
-                setPaying(false);
-              } else if (paymentIntent) {
-                onSuccess(paymentIntent.id);
-              }
-            }}
-            style={{
-              display: "block", width: "100%", padding: "13px 0", border: "none",
-              background: "linear-gradient(135deg, #F4B4C3, #E8E0F0)", borderRadius: 12,
-              fontFamily: fonts.body, fontSize: 13, letterSpacing: 2, color: colors.ink,
-              cursor: "pointer", transition: "all 0.3s", opacity: paying ? 0.6 : 1,
-            }}
-          >
-            {paying ? "Processing..." : `Pay $${(amount || 100) / 100}`}
-          </button>
         </div>
       )}
 
