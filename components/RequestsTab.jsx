@@ -128,7 +128,7 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
   const [walletSettled, setWalletSettled] = useState(false);
   useEffect(() => {
     if (walletReady) {
-      const t = setTimeout(() => setWalletSettled(true), 1000);
+      const t = setTimeout(() => setWalletSettled(true), 800);
       return () => clearTimeout(t);
     }
   }, [walletReady]);
@@ -259,8 +259,8 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
         })}
       </div>
 
-      {/* Wallet tab */}
-      <div style={activeTab === "wallet" ? {} : { display: "none" }}>
+      {/* Wallet tab — always rendered (clipped when inactive so Stripe pre-loads) */}
+      <div style={activeTab === "wallet" ? {} : { height: 0, overflow: "hidden", position: "absolute", width: "100%" }}>
         {showWallet ? (
           <div style={{ marginBottom: 16 }}>
             {/* Render in a clipped container until settled, then swap to visible */}
