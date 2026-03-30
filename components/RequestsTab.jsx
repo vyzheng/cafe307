@@ -260,9 +260,11 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
             style={{
               display: "flex", alignItems: "center", justifyContent: "center",
               width: "100%", padding: "13px 0", 
-              border: "1px solid #e0e0e0",
+              border: walletType === "link" ? "none" : "1px solid #e0e0e0",
               borderRadius: 12,
-              background: "#000",
+              background: walletType === "link"
+                ? "linear-gradient(135deg, #00D66F, #00B35B)"
+                : "#000",
               color: "#fff",
               fontFamily: fonts.body, fontSize: 13, fontWeight: 600,
               letterSpacing: 2, cursor: "pointer",
