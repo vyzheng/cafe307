@@ -83,32 +83,10 @@ function OrDivider() {
 }
 
 /*
-  Three payment method tabs:
-    - Card:   manual card number entry via Stripe CardElement
-    - Link:   Stripe Link — selecting this tab shows the LinkAuthenticationElement
-              which auto-triggers a popup for saved payment methods, providing a
-              one-tap checkout experience for returning Stripe Link users
-    - Wallet: Apple Pay / Google Pay via the Payment Request API; only shown
-              when the browser/device supports it (canMakePayment check)
-*/
-const TABS = [
-  { id: "card", label: "Card" },
-  { id: "wallet", label: " Pay" },
-];
-
-/*
-  PaymentForm must be rendered inside <Elements> because useStripe() and
-  useElements() read from the Elements context. Stripe provides no other way
-  to access the card input or confirm a payment — so this component can never
-  be lifted above the <Elements> wrapper.
-*/
-/*
-  PaymentForm — deferred intent flow.
-  The card form renders INSTANTLY (no clientSecret needed up front).
-  When the user clicks Pay, we:
-    1. Create the PaymentIntent server-side
-    2. Confirm it with the card details already entered
-  Result: zero loading delay — form appears the moment they click Request.
+  PaymentForm — Option B layout (no tabs).
+  Card fields on top, "or pay with" divider, Apple/Google Pay below.
+  Everything renders at once — no tab switching, no animation issues.
+  Deferred intent: PaymentIntent created on Pay click (or pre-fetched).
 */
 function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSuccess, onCancel, amount, prefetchedSecret }) {
   const stripe = useStripe();
@@ -116,22 +94,10 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState(null);
   const [paymentRequest, setPaymentRequest] = useState(null);
-  const [walletChecked, setWalletChecked] = useState(false);
-  const [activeTab, setActiveTab] = useState("card");
 
-  // Track which Stripe elements are ready — show all at once when all loaded
+  // Track which Stripe elements are ready — show all at once
   const [readyCount, setReadyCount] = useState(0);
-  const [walletReady, setWalletReady] = useState(false);
-  const allCardReady = readyCount >= 3; // number, expiry, cvc
-
-  // Delay wallet visibility to let Stripe's internal animation finish offscreen
-  const [walletSettled, setWalletSettled] = useState(false);
-  useEffect(() => {
-    if (walletReady) {
-      const t = setTimeout(() => setWalletSettled(true), 800);
-      return () => clearTimeout(t);
-    }
-  }, [walletReady]);
+  const allCardReady = readyCount >= 3;
 
   // Apple Pay / Google Pay
   useEffect(() => {
@@ -145,7 +111,6 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
     });
     pr.canMakePayment().then((result) => {
       if (result) setPaymentRequest(pr);
-      setWalletChecked(true);
     });
     pr.on("paymentmethod", async (ev) => {
       try {
@@ -221,117 +186,61 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
     }
   };
 
-  // Always show both tabs
-  const showWallet = walletChecked && paymentRequest;
-
   return (
     <div style={{ marginTop: 16 }}>
-      {/* Tab bar — always show both tabs */}
-      <div style={{
-        display: "flex", borderRadius: 12, overflow: "hidden",
-        border: "1px solid rgba(232,152,171,0.2)", marginBottom: 16,
-      }}>
-        {TABS.map((tab, i) => {
-          const isActive = tab.id === activeTab;
-          // Dim wallet tab if not available
-          const isDisabled = tab.id === "wallet" && walletChecked && !paymentRequest;
-          return (
-            <div
-              key={tab.id}
-              onClick={() => { if (!paying && !isDisabled) setActiveTab(tab.id); }}
-              style={{
-                flex: 1, padding: "11px 0", textAlign: "center",
-                fontFamily: fonts.body, fontSize: 12, letterSpacing: 1.2,
-                cursor: paying || isDisabled ? "default" : "pointer",
-                transition: "all 0.25s ease",
-                background: isActive
-                  ? "linear-gradient(135deg, rgba(244,180,195,0.25), rgba(232,224,240,0.3))"
-                  : "rgba(255,255,255,0.4)",
-                color: isDisabled ? "rgba(155,139,122,0.35)" : isActive ? colors.ink : colors.inkLight,
-                fontWeight: isActive ? 500 : 400,
-                borderRight: i < TABS.length - 1
-                  ? "1px solid rgba(232,152,171,0.15)" : "none",
-              }}
-            >
-              {tab.label}
+      {/* Card fields */}
+      <form onSubmit={handlePay}>
+        <div style={{
+          borderRadius: 14,
+          border: "1px solid rgba(232,152,171,0.15)",
+          background: "rgba(255,255,255,0.5)",
+          opacity: allCardReady ? 1 : 0,
+          transition: "opacity 0.15s ease",
+        }}>
+          <div style={{ padding: "14px 14px 10px" }}>
+            <CardNumberElement onReady={onElementReady} options={{ style: elementStyle, disableLink: true, placeholder: "Card number" }} />
+          </div>
+          <div style={{ height: 1, background: "rgba(232,152,171,0.1)", margin: "0 14px" }} />
+          <div style={{ display: "flex", padding: "10px 14px 14px", gap: 24 }}>
+            <div style={{ flex: 1 }}>
+              <CardExpiryElement onReady={onElementReady} options={{ style: elementStyle }} />
             </div>
-          );
-        })}
-      </div>
+            <div style={{ flex: 1 }}>
+              <CardCvcElement onReady={onElementReady} options={{ style: elementStyle }} />
+            </div>
+          </div>
+        </div>
+        <button
+          type="submit"
+          disabled={paying || !stripe || !allCardReady}
+          style={{
+            display: "block", width: "100%", marginTop: 14,
+            padding: "13px 0", border: "none",
+            background: "linear-gradient(135deg, #F4B4C3, #E8E0F0)",
+            borderRadius: 12, fontFamily: fonts.body, fontSize: 13,
+            letterSpacing: 2, color: colors.ink, cursor: "pointer",
+            transition: "all 0.3s", opacity: paying ? 0.6 : allCardReady ? 1 : 0,
+          }}
+        >
+          {paying ? "Processing..." : `Pay $${(amount || 100) / 100}`}
+        </button>
+      </form>
 
-      {/* Wallet tab — always rendered (clipped when inactive so Stripe pre-loads) */}
-      <div style={activeTab === "wallet" ? {} : { height: 0, overflow: "hidden", position: "absolute", width: "100%" }}>
-        {showWallet ? (
-          <div style={{ marginBottom: 16 }}>
-            {/* Render in a clipped container until settled, then swap to visible */}
-            <div style={walletSettled ? {} : { height: 0, overflow: "hidden" }}>
-              <PaymentRequestButtonElement
-                onReady={() => setWalletReady(true)}
-                options={{ paymentRequest, style: {
-                  paymentRequestButton: { type: "default", theme: "light-outline", height: "48px" },
-                } }}
-              />
-            </div>
-            {!walletSettled && (
-              <div style={{
-                height: 48, borderRadius: 4,
-                background: "rgba(255,255,255,0.3)",
-                border: "1px solid rgba(232,152,171,0.15)",
-              }} />
-            )}
-          </div>
-        ) : walletChecked ? (
+      {/* "or pay with" divider + Apple/Google Pay */}
+      {paymentRequest && (
+        <>
           <div style={{
-            textAlign: "center", padding: "20px 12px",
-            fontFamily: fonts.body, fontSize: 12, color: colors.inkLight, fontStyle: "italic",
+            display: "flex", alignItems: "center", gap: 10, margin: "18px 0",
           }}>
-            Apple Pay / Google Pay not available in this browser.
-            <br />Try Safari on macOS or Chrome on Android.
+            <div style={{ flex: 1, height: 1, background: "rgba(232,152,171,0.2)" }} />
+            <span style={{ fontFamily: fonts.body, fontSize: 10, color: colors.inkLight, letterSpacing: 1 }}>or</span>
+            <div style={{ flex: 1, height: 1, background: "rgba(232,152,171,0.2)" }} />
           </div>
-        ) : null}
-      </div>
-
-      {/* Card tab */}
-      <div style={activeTab === "card" ? {} : { display: "none" }}>
-        <form onSubmit={handlePay}>
-          <div style={{
-            borderRadius: 14,
-            border: "1px solid rgba(232,152,171,0.15)",
-            background: "rgba(255,255,255,0.5)",
-            opacity: allCardReady ? 1 : 0,
-            transition: "opacity 0.15s ease",
-          }}>
-            {/* Card number — full width */}
-            <div style={{ padding: "14px 14px 10px" }}>
-              <CardNumberElement onReady={onElementReady} options={{ style: elementStyle, disableLink: true, placeholder: "Card number" }} />
-            </div>
-            <div style={{ height: 1, background: "rgba(232,152,171,0.1)", margin: "0 14px" }} />
-            {/* Expiry + CVC side by side with generous gap */}
-            <div style={{ display: "flex", padding: "10px 14px 14px", gap: 24 }}>
-              <div style={{ flex: 1 }}>
-                <CardExpiryElement onReady={onElementReady} options={{ style: elementStyle }} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <CardCvcElement onReady={onElementReady} options={{ style: elementStyle }} />
-              </div>
-            </div>
-          </div>
-          <button
-            type="submit"
-            disabled={paying || !stripe || !allCardReady}
-            style={{
-              display: "block", width: "100%", marginTop: 14,
-              padding: "13px 0", border: "none",
-              background: "linear-gradient(135deg, #F4B4C3, #E8E0F0)",
-              borderRadius: 12, fontFamily: fonts.body, fontSize: 13,
-              letterSpacing: 2, color: colors.ink, cursor: "pointer",
-              transition: "all 0.3s", opacity: paying ? 0.6 : allCardReady ? 1 : 0,
-            }}
-          >
-            {paying ? "Processing..." : `Pay $${(amount || 100) / 100}`}
-          </button>
-        </form>
-      </div>
+          <PaymentRequestButtonElement options={{ paymentRequest, style: {
+            paymentRequestButton: { type: "buy", theme: "light-outline", height: "48px" },
+          } }} />
+        </>
+      )}
 
       {payError && (
         <div style={{
@@ -366,7 +275,6 @@ function RequestsTab({ userCode }) {
   const [nudge, setNudge] = useState(false);
   const [requests, setRequests] = useState([]);
   const [error, setError] = useState(null);
-  const [showPayment, setShowPayment] = useState(false);
   const [successMsg, setSuccessMsg] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null); // dish name pending delete
 
@@ -426,15 +334,6 @@ function RequestsTab({ userCode }) {
     }
   }, [dishName, hasMicromanage, customNote, prefetchIntent]);
 
-  const handleRequest = () => {
-    const trimmed = dishName.trim();
-    if (!trimmed) return;
-    setError(null);
-    setSuccessMsg(null);
-    setNudge(false);
-    setShowPayment(true);
-  };
-
   /*
     handlePaymentSuccess — called after Stripe confirms the payment on the
     client side. We POST to /api/requests/confirm so the backend can:
@@ -457,7 +356,6 @@ function RequestsTab({ userCode }) {
       });
       confirmOk = res.ok;
     } catch { /* network error */ }
-    setShowPayment(false);
     setDishName("");
     setCustomNote("");
     setNudge(false);
@@ -472,7 +370,6 @@ function RequestsTab({ userCode }) {
   };
 
   const handleCancel = () => {
-    setShowPayment(false);
     prefetchRef.current = { secret: null, isCustom: false, dishName: "", fetching: false };
   };
 
@@ -523,14 +420,6 @@ function RequestsTab({ userCode }) {
 
   return (
     <div style={{ ...mainView.card, padding: "48px 36px", overflow: "hidden" }}>
-      {/* Sparkle shine animation for micromanage button */}
-      <style>{`
-        @keyframes cafe307-shine {
-          0% { left: -100%; }
-          30% { left: 150%; }
-          100% { left: 150%; }
-        }
-      `}</style>
       {/* Header */}
       <div style={{ textAlign: "center", marginBottom: 16 }}>
         <div style={{ fontSize: 22, marginBottom: 8 }}>🌟</div>
@@ -583,16 +472,13 @@ function RequestsTab({ userCode }) {
           padding: "12px 16px", marginBottom: 12,
           border: "1px solid rgba(232,152,171,0.15)",
           borderRadius: 12, background: "rgba(255,255,255,0.5)",
-          opacity: showPayment ? 0.5 : 1,
         }}>
           <span style={{ fontSize: 13, flexShrink: 0, opacity: 0.6 }}>🍽️</span>
           <input
             type="text"
             value={dishName}
             onChange={(e) => { setDishName(e.target.value); setNudge(false); }}
-            onKeyDown={(e) => { if (e.key === "Enter" && !showPayment) handleRequest(); }}
             placeholder="Make a wish"
-            disabled={showPayment}
             style={{
               flex: 1, padding: 0, border: "none", background: "transparent",
               fontFamily: fonts.body, fontSize: 14, color: colors.ink,
@@ -606,7 +492,6 @@ function RequestsTab({ userCode }) {
           padding: "12px 16px",
           border: `1px solid ${nudge ? "rgba(232,152,171,0.4)" : "rgba(232,152,171,0.15)"}`,
           borderRadius: 12, background: "rgba(255,255,255,0.5)",
-          opacity: showPayment ? 0.5 : 1,
           transition: "border-color 0.3s",
         }}>
           <span style={{ fontSize: 13, flexShrink: 0, opacity: 0.6, marginTop: 1 }}>📝</span>
@@ -615,7 +500,6 @@ function RequestsTab({ userCode }) {
             onChange={(e) => { setCustomNote(e.target.value); setNudge(false); }}
             placeholder="Micromanage (+$1)"
             maxLength={1000}
-            disabled={showPayment}
             style={{
               flex: 1, padding: 0, minHeight: 40, border: "none", background: "transparent",
               fontFamily: fonts.body, fontSize: 14, color: colors.ink,
@@ -624,58 +508,8 @@ function RequestsTab({ userCode }) {
             }}
           />
         </div>
-        {!hasMicromanage && !nudge && (
-          <div style={{
-            fontFamily: fonts.body, fontSize: 10, color: colors.inkLight,
-            fontStyle: "italic", marginTop: 4, textAlign: "right", opacity: 0.7,
-          }}>
-            Leave empty for chef's choice
-          </div>
-        )}
-
-        {/* Nudge message */}
-        {nudge && (
-          <div style={{
-            textAlign: "center", marginTop: 10,
-            fontFamily: fonts.body, fontSize: 11,
-            color: colors.pinkDeep, fontStyle: "italic", letterSpacing: 0.3,
-          }}>
-            ✨ Micromanaging is $2 — or clear the field for $1 chef&rsquo;s choice
-          </div>
-        )}
-
-        {/* Submit button — auto-switches between $1 and $2 */}
-        {!showPayment && (
-          <button
-            onClick={handleRequest}
-            disabled={!dishName.trim()}
-            style={{
-              display: "block", width: "100%", marginTop: 16,
-              padding: "14px 0", border: "none",
-              background: "linear-gradient(135deg, rgba(244,180,195,0.2), rgba(232,224,240,0.25))",
-              borderRadius: 14, fontFamily: fonts.body, fontSize: 14,
-              letterSpacing: 2, color: colors.ink,
-              cursor: "pointer",
-              transition: "all 0.3s",
-              opacity: 1,
-              position: "relative", overflow: "hidden",
-            }}
-          >
-            {hasMicromanage ? "Micromanage · $2" : "Request · $1"}
-            {hasMicromanage && (
-              <span style={{
-                position: "absolute", top: 0, left: "-100%",
-                width: "60%", height: "100%",
-                background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)",
-                animation: "cafe307-shine 3s ease-in-out infinite",
-                pointerEvents: "none",
-              }} />
-            )}
-          </button>
-        )}
-
-        {/* Inline Stripe payment form — renders instantly, no loading */}
-        {showPayment && stripePromise && (
+        {/* Payment form — always visible, no intermediate button */}
+        {stripePromise && (
           <PaymentErrorBoundary onCancel={handleCancel}>
             <Elements stripe={stripePromise} options={elementsOptions}>
               <PaymentForm
