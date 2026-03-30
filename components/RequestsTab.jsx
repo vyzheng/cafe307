@@ -94,6 +94,7 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState(null);
   const [paymentRequest, setPaymentRequest] = useState(null);
+  const [walletType, setWalletType] = useState(null); // "applePay" | "googlePay" | "link"
 
   // Track which Stripe elements are ready — show all at once
   const [readyCount, setReadyCount] = useState(0);
@@ -110,7 +111,12 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
       requestPayerEmail: false,
     });
     pr.canMakePayment().then((result) => {
-      if (result) setPaymentRequest(pr);
+      if (result) {
+        setPaymentRequest(pr);
+        if (result.applePay) setWalletType("applePay");
+        else if (result.googlePay) setWalletType("googlePay");
+        else setWalletType("link");
+      }
     });
     pr.on("paymentmethod", async (ev) => {
       try {
@@ -242,14 +248,20 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
             disabled={paying}
             style={{
               display: "flex", alignItems: "center", justifyContent: "center",
-              width: "100%", height: 48, border: "1px solid #e0e0e0",
-              borderRadius: 6, background: "#000", color: "#fff",
-              fontSize: 16, cursor: "pointer", gap: 4,
+              width: "100%", padding: "13px 0", 
+              border: walletType === "link" ? "none" : "1px solid #e0e0e0",
+              borderRadius: 12,
+              background: walletType === "link"
+                ? "linear-gradient(135deg, #00D66F, #00B35B)"
+                : "#000",
+              color: "#fff",
+              fontFamily: fonts.body, fontSize: 13, letterSpacing: 2,
+              cursor: "pointer",
               opacity: paying ? 0.5 : 1,
               WebkitAppearance: "none",
             }}
           >
-            Apple Pay
+            {walletType === "applePay" ? "Apple Pay" : walletType === "googlePay" ? "Google Pay" : "Link Pay"}
           </button>
         </>
       )}
