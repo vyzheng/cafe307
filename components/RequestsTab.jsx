@@ -88,7 +88,7 @@ function OrDivider() {
   Everything renders at once — no tab switching, no animation issues.
   Deferred intent: PaymentIntent created on Pay click (or pre-fetched).
 */
-function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSuccess, onCancel, amount, prefetchedSecret }) {
+function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSuccess, onCancel, amount, prefetchedSecret, successMsg }) {
   const stripe = useStripe();
   const elements = useElements();
   const [paying, setPaying] = useState(false);
@@ -231,6 +231,16 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
         >
           {paying ? "Processing..." : `Pay $${(amount || 100) / 100}`}
         </button>
+
+        {/* Success message — right below Pay button */}
+        {successMsg && (
+          <div style={{
+            textAlign: "center", marginTop: 10, fontFamily: fonts.body,
+            fontSize: 13, color: "#C4A265", fontStyle: "italic",
+          }}>
+            {successMsg}
+          </div>
+        )}
       </form>
 
       {/* "or" divider + custom Apple Pay button (no Stripe iframe = no animation) */}
@@ -289,6 +299,7 @@ PaymentForm.propTypes = {
   onCancel: PropTypes.func.isRequired,
   amount: PropTypes.number,
   prefetchedSecret: PropTypes.string,
+  successMsg: PropTypes.string,
 };
 
 function RequestsTab({ userCode }) {
@@ -382,18 +393,21 @@ function RequestsTab({ userCode }) {
       });
       confirmOk = res.ok;
     } catch { /* network error */ }
-    setDishName("");
-    setCustomNote("");
-    setNudge(false);
-    setPaymentKey((k) => k + 1); // force fresh PaymentForm
-    prefetchRef.current = { secret: null, isCustom: false, dishName: "", fetching: false };
+    // Show success message for 3s with everything intact, then clear
     if (confirmOk) {
       setSuccessMsg(`✨ ${dishName.trim()} requested!`);
     } else {
       setSuccessMsg(`✨ Payment received — your wish will appear shortly.`);
     }
     fetchRequests();
-    setTimeout(() => setSuccessMsg(null), 4000);
+    setTimeout(() => {
+      setSuccessMsg(null);
+      setDishName("");
+      setCustomNote("");
+      setNudge(false);
+      setPaymentKey((k) => k + 1);
+      prefetchRef.current = { secret: null, isCustom: false, dishName: "", fetching: false };
+    }, 3000);
   };
 
   const handleCancel = () => {
@@ -553,6 +567,7 @@ function RequestsTab({ userCode }) {
                 onCancel={handleCancel}
                 amount={hasMicromanage ? 200 : 100}
                 prefetchedSecret={prefetchRef.current.secret}
+                successMsg={successMsg}
               />
             </Elements>
           </PaymentErrorBoundary>
@@ -566,14 +581,7 @@ function RequestsTab({ userCode }) {
             {error}
           </div>
         )}
-        {successMsg && (
-          <div style={{
-            textAlign: "center", marginTop: 8, fontFamily: fonts.body,
-            fontSize: 12, color: colors.success,
-          }}>
-            {successMsg}
-          </div>
-        )}
+        {/* success message moved inside PaymentForm */}
       </div>
 
       {/* Divider */}
