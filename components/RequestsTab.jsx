@@ -250,8 +250,8 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
         })}
       </div>
 
-      {/* Wallet tab — always rendered (visibility hidden when inactive so Stripe iframe pre-loads) */}
-      <div style={activeTab === "wallet" ? {} : { height: 0, overflow: "hidden", visibility: "hidden" }}>
+      {/* Wallet tab — rendered offscreen when inactive so Stripe iframe fully pre-loads */}
+      <div style={activeTab === "wallet" ? {} : { position: "absolute", left: -9999, opacity: 0, pointerEvents: "none" }}>
         {showWallet ? (
           <div style={{
             marginBottom: 16,
@@ -276,8 +276,8 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
         ) : null}
       </div>
 
-      {/* Card tab — always rendered */}
-      <div style={activeTab === "card" ? {} : { height: 0, overflow: "hidden", visibility: "hidden" }}>
+      {/* Card tab — rendered offscreen when inactive so Stripe iframe fully pre-loads */}
+      <div style={activeTab === "card" ? {} : { position: "absolute", left: -9999, opacity: 0, pointerEvents: "none" }}>
         <form onSubmit={handlePay}>
           <div style={{
             borderRadius: 14,
