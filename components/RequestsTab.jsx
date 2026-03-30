@@ -259,26 +259,22 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
         })}
       </div>
 
-      {/* Wallet tab — always rendered (clipped when inactive so Stripe pre-loads) */}
-      <div style={activeTab === "wallet" ? {} : { height: 0, overflow: "hidden", position: "absolute", width: "100%" }}>
+      {/* Tab content — stacked so both render visually, z-index swaps active */}
+      <div style={{ position: "relative" }}>
+      <div style={{
+        position: activeTab === "wallet" ? "relative" : "absolute",
+        top: 0, left: 0, width: "100%",
+        zIndex: activeTab === "wallet" ? 1 : 0,
+        pointerEvents: activeTab === "wallet" ? "auto" : "none",
+      }}>
         {showWallet ? (
           <div style={{ marginBottom: 16 }}>
-            {/* Render in a clipped container until settled, then swap to visible */}
-            <div style={walletSettled ? {} : { height: 0, overflow: "hidden" }}>
-              <PaymentRequestButtonElement
-                onReady={() => setWalletReady(true)}
-                options={{ paymentRequest, style: {
-                  paymentRequestButton: { type: "default", theme: "light-outline", height: "48px" },
-                } }}
-              />
-            </div>
-            {!walletSettled && (
-              <div style={{
-                height: 48, borderRadius: 4,
-                background: "rgba(255,255,255,0.3)",
-                border: "1px solid rgba(232,152,171,0.15)",
-              }} />
-            )}
+            <PaymentRequestButtonElement
+              onReady={() => setWalletReady(true)}
+              options={{ paymentRequest, style: {
+                paymentRequestButton: { type: "default", theme: "light-outline", height: "48px" },
+              } }}
+            />
           </div>
         ) : walletChecked ? (
           <div style={{
@@ -291,8 +287,12 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
         ) : null}
       </div>
 
-      {/* Card tab */}
-      <div style={activeTab === "card" ? {} : { display: "none" }}>
+      <div style={{
+        position: activeTab === "card" ? "relative" : "absolute",
+        top: 0, left: 0, width: "100%",
+        zIndex: activeTab === "card" ? 1 : 0,
+        pointerEvents: activeTab === "card" ? "auto" : "none",
+      }}>
         <form onSubmit={handlePay}>
           <div style={{
             borderRadius: 14,
@@ -332,6 +332,7 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
           </button>
         </form>
       </div>
+      </div>{/* end stacked container */}
 
       {payError && (
         <div style={{
