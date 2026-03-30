@@ -527,23 +527,16 @@ function RequestsTab({ userCode }) {
       </div>
 
       {/* Input fields + Button */}
-      <div style={{ marginBottom: 24 }}>
-        {/* Dish field */}
-        <div style={{
-          fontFamily: fonts.body, fontSize: 10, letterSpacing: 2,
-          color: colors.inkLight, textTransform: "uppercase", marginBottom: 6,
-        }}>
-          Dish
-        </div>
+      <div style={{ marginBottom: 24, marginTop: 8 }}>
         <input
           type="text"
           value={dishName}
           onChange={(e) => { setDishName(e.target.value); setNudge(false); }}
           onKeyDown={(e) => { if (e.key === "Enter" && !clientSecret) handleRequest(); }}
-          placeholder="e.g. Mapo Tofu, Char Siu Bao..."
+          placeholder="Enter dish..."
           disabled={!!clientSecret}
           style={{
-            width: "100%", padding: "12px 14px",
+            width: "100%", padding: "14px 16px",
             border: "1px solid rgba(232,152,171,0.15)",
             borderRadius: 12, background: "rgba(255,255,255,0.5)",
             fontFamily: fonts.body, fontSize: 16,
@@ -553,21 +546,11 @@ function RequestsTab({ userCode }) {
           }}
         />
 
-        {/* Micromanage field */}
-        <div style={{ height: 14 }} />
-        <div style={{
-          fontFamily: fonts.body, fontSize: 10, letterSpacing: 2,
-          color: colors.inkLight, textTransform: "uppercase", marginBottom: 6,
-        }}>
-          Micromanage{" "}
-          <span style={{ fontStyle: "italic", textTransform: "none", letterSpacing: 0 }}>
-            (optional · +$1)
-          </span>
-        </div>
+        <div style={{ height: 10 }} />
         <textarea
           value={customNote}
           onChange={(e) => { setCustomNote(e.target.value); setNudge(false); }}
-          placeholder="How should the chef make it? Paste a link or describe..."
+          placeholder="Micromanage notes (optional · +$1)"
           maxLength={1000}
           disabled={!!clientSecret}
           style={{
