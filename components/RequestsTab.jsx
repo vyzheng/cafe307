@@ -612,19 +612,18 @@ function RequestsTab({ userCode }) {
                   ? "1px solid rgba(232,152,171,0.08)" : "none",
                 position: "relative",
               }}>
-                {/* Gold "Wish Granted" label above dish name */}
-                {r.granted && (
-                  <div style={{
-                    display: "inline-flex", alignItems: "center", gap: 4,
-                    marginBottom: 6,
-                  }}>
-                    <span style={{ fontSize: 11 }}>🌟</span>
-                    <span style={{
-                      fontFamily: fonts.body, fontSize: 9, color: "#C4A265",
-                      letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 500,
-                    }}>Wish Granted</span>
-                  </div>
-                )}
+                {/* Status label above dish name */}
+                <div style={{
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                  marginBottom: 6,
+                }}>
+                  <span style={{ fontSize: 11 }}>{r.granted ? "🌟" : "⭐"}</span>
+                  <span style={{
+                    fontFamily: fonts.body, fontSize: 9,
+                    color: r.granted ? "#C4A265" : colors.inkLight,
+                    letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 500,
+                  }}>{r.granted ? "Wish Granted" : "Wish Submitted"}</span>
+                </div>
                 {/* Dish name */}
                 <div style={{
                   fontFamily: fonts.body, fontSize: 15, fontWeight: 400,
