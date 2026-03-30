@@ -71,8 +71,8 @@ def _build_receipt_html(dish_name: str, amount_cents: int, is_custom: bool, cust
               <!-- Preview text — shows in email inbox preview -->
               <tr>
                 <td style="padding:24px 24px 4px;text-align:center;">
-                  <div style="font-family:'Georgia',serif;font-size:13px;color:#4A3728;font-style:italic;">
-                    You made a wish! ✨
+                  <div style="font-family:'Georgia',serif;font-size:13px;color:#4A3728;font-style:italic;line-height:1.6;">
+                    You made a wish! Visit <a href="https://cafe307.com" style="color:#B47B8A;text-decoration:underline;">cafe307.com</a> to see the latest menu — your wish might be granted this week! ✨
                   </div>
                 </td>
               </tr>
@@ -121,15 +121,8 @@ def _build_receipt_html(dish_name: str, amount_cents: int, is_custom: bool, cust
                   <div style="height:1px;background:linear-gradient(to right,transparent,rgba(232,152,171,0.3),transparent);"></div>
                 </td>
               </tr>
-              <!-- Footer -->
-              <tr>
-                <td style="padding:16px 24px 28px;text-align:center;">
-                  <div style="font-family:'Georgia',serif;font-size:11px;color:#9B8B7A;font-style:italic;line-height:1.8;">
-                    Your wish is very important to us. Please hold momentarily.<br>
-                    Visit <a href="https://cafe307.com" style="color:#B47B8A;text-decoration:underline;">cafe307.com</a> to see the latest menu — your wish might be granted ✨
-                  </div>
-                </td>
-              </tr>
+              <!-- Bottom padding -->
+              <tr><td style="padding:0 0 24px;"></td></tr>
             </table>
           </td>
         </tr>
