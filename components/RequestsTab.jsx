@@ -689,15 +689,15 @@ function RequestsTab({ userCode }) {
           return (
             <FadeIn key={r.dishName} delay={100 + i * 100}>
               <div style={{
-                textAlign: "center", padding: "20px 0",
+                textAlign: "center", padding: "18px 0",
                 borderBottom: i < requests.length - 1
-                  ? "1px solid rgba(232,152,171,0.1)" : "none",
+                  ? "1px solid rgba(232,152,171,0.08)" : "none",
                 position: "relative", overflow: "hidden",
               }}>
                 {/* "GRANTED" corner ribbon */}
                 {r.granted && (
                   <div style={{
-                    position: "absolute", top: 10, right: -28,
+                    position: "absolute", top: 8, right: -30,
                     background: "linear-gradient(135deg, #F4B4C3, #E8E0F0)",
                     color: colors.ink, fontSize: 7, fontWeight: 600,
                     letterSpacing: 1.5, textTransform: "uppercase",
@@ -707,14 +707,13 @@ function RequestsTab({ userCode }) {
                     Granted
                   </div>
                 )}
-                {/* Dish name + star toggle (visible to vivian/vlad only).
-                    Star is dimmed + grayscale when ungranted, gold with glow when granted. */}
+                {/* Dish name + star toggle */}
                 <div style={{
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  display: "inline-flex", alignItems: "center", gap: 6,
                 }}>
                   <div style={{
-                    fontFamily: fonts.body, fontStyle: "italic", fontSize: 15,
-                    fontWeight: 300, color: colors.ink, letterSpacing: 2, lineHeight: 1.4,
+                    fontFamily: fonts.body, fontSize: 18, fontWeight: 400,
+                    color: colors.ink, letterSpacing: 2,
                   }}>
                     {r.dishName}
                   </div>
@@ -722,8 +721,7 @@ function RequestsTab({ userCode }) {
                     <span
                       onClick={() => handleGrant(r.dishName)}
                       style={{
-                        fontSize: r.granted ? 18 : 16,
-                        cursor: "pointer",
+                        fontSize: 16, cursor: "pointer",
                         opacity: r.granted ? 1 : 0.3,
                         filter: r.granted
                           ? "grayscale(0) drop-shadow(0 0 3px rgba(212,169,106,0.35))"
@@ -735,21 +733,23 @@ function RequestsTab({ userCode }) {
                     >⭐</span>
                   )}
                 </div>
-                <div style={{
-                  display: "inline-block", marginTop: 6,
-                  padding: "3px 10px", fontSize: 8, fontFamily: fonts.jp,
-                  color: colors.pinkDeep,
-                  border: "1px solid rgba(232,152,171,0.2)", borderRadius: 10,
-                  letterSpacing: 1, opacity: 0.8,
-                }}>
-                  {r.count} {r.count === 1 ? "request" : "requests"}
-                </div>
+                {/* Requester pills */}
                 {r.requestedBy && r.requestedBy.length > 0 && (
                   <div style={{
-                    fontFamily: fonts.body, fontSize: 11, color: colors.inkLight,
-                    marginTop: 6, letterSpacing: 0.5,
+                    display: "flex", flexWrap: "wrap", justifyContent: "center",
+                    gap: 5, marginTop: 8,
                   }}>
-                    {r.requestedBy.join(", ")}
+                    {r.requestedBy.map((name) => (
+                      <div key={name} style={{
+                        padding: "2px 10px", borderRadius: 20,
+                        fontFamily: fonts.body, fontSize: 9, letterSpacing: 0.8,
+                        color: colors.inkLight,
+                        border: "1px solid rgba(232,152,171,0.18)",
+                        background: "rgba(255,255,255,0.5)",
+                      }}>
+                        {name}
+                      </div>
+                    ))}
                   </div>
                 )}
                 {/* Custom notes from $2 requests */}
@@ -757,17 +757,14 @@ function RequestsTab({ userCode }) {
                   <div style={{ marginTop: 8 }}>
                     {r.customNotes.map((cn, j) => (
                       <div key={j} style={{
-                        fontFamily: fonts.body, fontSize: 11, color: colors.inkLight,
-                        fontStyle: "italic", lineHeight: 1.5, marginTop: 4,
-                        padding: "6px 12px",
-                        background: "rgba(244,180,195,0.08)",
-                        borderRadius: 8, borderLeft: "2px solid rgba(232,152,171,0.3)",
+                        fontFamily: fonts.body, fontSize: 12, color: "#B47B8A",
+                        lineHeight: 1.5, marginTop: 4,
                       }}>
                         {cn.note.startsWith("http://") || cn.note.startsWith("https://")
                           ? <a href={cn.note} target="_blank" rel="noopener noreferrer" style={{ color: "#B47B8A", textDecoration: "underline" }}>{cn.note}</a>
                           : cn.note
                         }
-                        <span style={{ fontSize: 9, opacity: 0.6, marginLeft: 6 }}>— {cn.by}</span>
+                        <span style={{ fontSize: 9, opacity: 0.5, marginLeft: 4 }}>— {cn.by}</span>
                       </div>
                     ))}
                   </div>
