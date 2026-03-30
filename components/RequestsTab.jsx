@@ -197,7 +197,7 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
       {/* Card fields */}
       <form onSubmit={handlePay}>
         <div style={{
-          borderRadius: 14,
+          borderRadius: 12,
           border: "1px solid rgba(232,152,171,0.15)",
           background: "rgba(255,255,255,0.5)",
           opacity: allCardReady ? 1 : 0,
