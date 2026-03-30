@@ -239,14 +239,14 @@ def clear_requests(
     return {"deleted": count}
 
 
-class GrantBody(BaseModel):
-    """Body for the grant/ungrant toggle endpoint."""
+class DishBody(BaseModel):
+    """Body for grant/ungrant and delete endpoints."""
     dishName: str
 
 
 @router.post("/grant")
 def grant_wish(
-    body: GrantBody,
+    body: DishBody,
     user_code: str = Depends(_require_logged_in),
     db: Session = Depends(get_db),
 ):
@@ -285,3 +285,23 @@ def grant_wish(
         )
         db.commit()
         return {"granted": True}
+
+
+@router.delete("/dish")
+def delete_dish(
+    body: DishBody,
+    user_code: str = Depends(_require_logged_in),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete ALL requests for a specific dish. Vivian-only.
+    Removes the dish entirely from the wishes list.
+    """
+    if user_code != "vivian":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    dish_name = body.dishName.strip().title()
+    if not dish_name:
+        raise HTTPException(status_code=400, detail="Missing dish name")
+    count = db.query(DishRequest).filter(DishRequest.dish_name == dish_name).delete()
+    db.commit()
+    return {"deleted": count}

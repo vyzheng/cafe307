@@ -334,6 +334,7 @@ function RequestsTab({ userCode }) {
   const [error, setError] = useState(null);
   const [clientSecret, setClientSecret] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null); // dish name pending delete
 
   const fetchRequests = () => {
     fetch(`${API_BASE}/api/requests`)
@@ -435,6 +436,21 @@ function RequestsTab({ userCode }) {
         },
         body: JSON.stringify({ dishName }),
       });
+      fetchRequests();
+    } catch { /* ignore */ }
+  };
+
+  const handleDelete = async (dishName) => {
+    try {
+      await fetch(`${API_BASE}/api/requests/dish`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Reservation-Code": userCode,
+        },
+        body: JSON.stringify({ dishName }),
+      });
+      setConfirmDelete(null);
       fetchRequests();
     } catch { /* ignore */ }
   };
@@ -617,6 +633,7 @@ function RequestsTab({ userCode }) {
 
       {/* Wishes list — ranked by request count (backend returns them sorted).
           Each dish shows its name, who requested it, and the total count. */}
+      {/* Delete confirmation state */}
       {requests.length === 0 ? (
         <div style={{
           textAlign: "center", fontFamily: fonts.body, fontSize: 13,
@@ -630,19 +647,19 @@ function RequestsTab({ userCode }) {
           return (
             <FadeIn key={r.dishName} delay={100 + i * 100}>
               <div style={{
-                textAlign: "center", padding: "18px 0",
+                textAlign: "center", padding: "24px 0",
                 borderBottom: i < requests.length - 1
                   ? "1px solid rgba(232,152,171,0.08)" : "none",
                 position: "relative", overflow: "hidden",
               }}>
-                {/* "GRANTED" corner ribbon */}
+                {/* "GRANTED" corner ribbon — wide enough to not clip */}
                 {r.granted && (
                   <div style={{
-                    position: "absolute", top: 8, right: -30,
+                    position: "absolute", top: 12, right: -35,
                     background: "linear-gradient(135deg, #F4B4C3, #E8E0F0)",
                     color: colors.ink, fontSize: 7, fontWeight: 600,
                     letterSpacing: 1.5, textTransform: "uppercase",
-                    padding: "2px 32px", transform: "rotate(40deg)",
+                    padding: "3px 42px", transform: "rotate(40deg)",
                     whiteSpace: "nowrap", pointerEvents: "none",
                   }}>
                     Granted
@@ -709,6 +726,49 @@ function RequestsTab({ userCode }) {
                       </div>
                     ))}
                   </div>
+                )}
+                {/* Delete button — Vivian only */}
+                {userCode === "vivian" && (
+                  confirmDelete === r.dishName ? (
+                    <div style={{
+                      marginTop: 10, display: "flex", justifyContent: "center",
+                      alignItems: "center", gap: 8,
+                    }}>
+                      <span style={{
+                        fontFamily: fonts.body, fontSize: 10, color: colors.inkLight,
+                      }}>
+                        Remove this wish?
+                      </span>
+                      <span
+                        onClick={() => handleDelete(r.dishName)}
+                        style={{
+                          fontFamily: fonts.body, fontSize: 10, color: "#C0392B",
+                          cursor: "pointer", fontWeight: 500,
+                        }}
+                      >Yes</span>
+                      <span
+                        onClick={() => setConfirmDelete(null)}
+                        style={{
+                          fontFamily: fonts.body, fontSize: 10, color: colors.inkLight,
+                          cursor: "pointer",
+                        }}
+                      >No</span>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => setConfirmDelete(r.dishName)}
+                      style={{
+                        marginTop: 10, fontFamily: fonts.body, fontSize: 9,
+                        color: colors.inkLight, cursor: "pointer",
+                        opacity: 0.4, transition: "opacity 0.2s",
+                        letterSpacing: 0.5,
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.opacity = 0.8}
+                      onMouseLeave={(e) => e.currentTarget.style.opacity = 0.4}
+                    >
+                      ✕ remove
+                    </div>
+                  )
                 )}
               </div>
             </FadeIn>
