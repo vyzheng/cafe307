@@ -570,10 +570,10 @@ function RequestsTab({ userCode }) {
         )}
 
         {/* Submit button — auto-switches between $1 and $2 */}
-        {!clientSecret && (
+        {!clientSecret && !loading && (
           <button
             onClick={handleRequest}
-            disabled={loading || !dishName.trim()}
+            disabled={!dishName.trim()}
             style={{
               display: "block", width: "100%", marginTop: 16,
               padding: "14px 0", border: "none",
@@ -586,8 +586,8 @@ function RequestsTab({ userCode }) {
               position: "relative", overflow: "hidden",
             }}
           >
-            {loading ? "Loading..." : hasMicromanage ? "Micromanage · $2" : "Request · $1"}
-            {hasMicromanage && !loading && (
+            {hasMicromanage ? "Micromanage · $2" : "Request · $1"}
+            {hasMicromanage && (
               <span style={{
                 position: "absolute", top: 0, left: "-100%",
                 width: "60%", height: "100%",
@@ -597,6 +597,27 @@ function RequestsTab({ userCode }) {
               }} />
             )}
           </button>
+        )}
+
+        {/* Loading shimmer while fetching clientSecret */}
+        {loading && !clientSecret && (
+          <div style={{
+            marginTop: 16, padding: "24px 0", textAlign: "center",
+            background: "rgba(255,255,255,0.3)", borderRadius: 14,
+          }}>
+            <style>{`
+              @keyframes cafe307-pulse {
+                0%, 100% { opacity: 0.4; }
+                50% { opacity: 1; }
+              }
+            `}</style>
+            <div style={{
+              fontFamily: fonts.body, fontSize: 12, color: colors.inkLight,
+              letterSpacing: 1.5, animation: "cafe307-pulse 1.2s ease-in-out infinite",
+            }}>
+              Loading payment...
+            </div>
+          </div>
         )}
 
         {/* Inline Stripe payment form */}
