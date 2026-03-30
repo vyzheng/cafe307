@@ -17,7 +17,7 @@ import PropTypes from "prop-types";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements, CardNumberElement, CardExpiryElement, CardCvcElement,
-  PaymentRequestButtonElement, useStripe, useElements,
+  useStripe, useElements,
 } from "@stripe/react-stripe-js";
 import FadeIn from "./layout/FadeIn";
 import SectionDivider from "./layout/SectionDivider";
@@ -226,7 +226,7 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
         </button>
       </form>
 
-      {/* "or pay with" divider + Apple/Google Pay */}
+      {/* "or" divider + custom Apple Pay button (no Stripe iframe = no animation) */}
       {paymentRequest && (
         <>
           <div style={{
@@ -236,9 +236,21 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
             <span style={{ fontFamily: fonts.body, fontSize: 10, color: colors.inkLight, letterSpacing: 1 }}>or</span>
             <div style={{ flex: 1, height: 1, background: "rgba(232,152,171,0.2)" }} />
           </div>
-          <PaymentRequestButtonElement options={{ paymentRequest, style: {
-            paymentRequestButton: { type: "buy", theme: "light-outline", height: "48px" },
-          } }} />
+          <button
+            type="button"
+            onClick={() => paymentRequest.show()}
+            disabled={paying}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: "100%", height: 48, border: "1px solid #e0e0e0",
+              borderRadius: 6, background: "#000", color: "#fff",
+              fontSize: 16, cursor: "pointer", gap: 4,
+              opacity: paying ? 0.5 : 1,
+              WebkitAppearance: "none",
+            }}
+          >
+            Apple Pay
+          </button>
         </>
       )}
 
