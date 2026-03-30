@@ -250,8 +250,8 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
         })}
       </div>
 
-      {/* Wallet tab */}
-      <div style={{ display: activeTab === "wallet" ? "block" : "none" }}>
+      {/* Wallet tab — always rendered (visibility hidden when inactive so Stripe iframe pre-loads) */}
+      <div style={activeTab === "wallet" ? {} : { height: 0, overflow: "hidden", visibility: "hidden" }}>
         {showWallet ? (
           <div style={{
             marginBottom: 16,
@@ -276,8 +276,8 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
         ) : null}
       </div>
 
-      {/* Card tab — individual elements for full layout control */}
-      <div style={{ display: activeTab === "card" ? "block" : "none" }}>
+      {/* Card tab — always rendered */}
+      <div style={activeTab === "card" ? {} : { height: 0, overflow: "hidden", visibility: "hidden" }}>
         <form onSubmit={handlePay}>
           <div style={{
             borderRadius: 14,
