@@ -261,7 +261,7 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
               WebkitAppearance: "none",
             }}
           >
-            {walletType === "applePay" ? "Apple Pay" : walletType === "googlePay" ? "Google Pay" : "Link Pay"}
+            {walletType === "applePay" ? "Apple Pay" : walletType === "googlePay" ? "Google Pay" : "Pay with Link"}
           </button>
         </>
       )}
