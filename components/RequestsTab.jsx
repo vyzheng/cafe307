@@ -493,7 +493,7 @@ function RequestsTab({ userCode }) {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email for receipt (optional)"
+            placeholder="Email for receipt"
             style={{
               flex: 1, padding: 0, border: "none", background: "transparent",
               fontFamily: fonts.body, fontSize: 14, color: colors.ink,
@@ -503,43 +503,52 @@ function RequestsTab({ userCode }) {
           <style>{`input[type="email"]::placeholder { color: #9B8B7A !important; }`}</style>
         </div>
 
-        <input
-          type="text"
-          value={dishName}
-          onChange={(e) => { setDishName(e.target.value); setNudge(false); }}
-          onKeyDown={(e) => { if (e.key === "Enter" && !clientSecret) handleRequest(); }}
-          placeholder="Enter dish"
-          disabled={!!clientSecret}
-          style={{
-            width: "100%", padding: "14px 16px",
-            border: "1px solid rgba(232,152,171,0.15)",
-            borderRadius: 12, background: "rgba(255,255,255,0.5)",
-            fontFamily: fonts.body, fontSize: 16,
-            color: colors.ink, letterSpacing: 1,
-            outline: "none", boxSizing: "border-box",
-            opacity: clientSecret ? 0.5 : 1,
-          }}
-        />
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "12px 16px", marginBottom: 12,
+          border: "1px solid rgba(232,152,171,0.15)",
+          borderRadius: 12, background: "rgba(255,255,255,0.5)",
+          opacity: clientSecret ? 0.5 : 1,
+        }}>
+          <span style={{ fontSize: 13, flexShrink: 0, opacity: 0.6 }}>🍽️</span>
+          <input
+            type="text"
+            value={dishName}
+            onChange={(e) => { setDishName(e.target.value); setNudge(false); }}
+            onKeyDown={(e) => { if (e.key === "Enter" && !clientSecret) handleRequest(); }}
+            placeholder="Make a wish"
+            disabled={!!clientSecret}
+            style={{
+              flex: 1, padding: 0, border: "none", background: "transparent",
+              fontFamily: fonts.body, fontSize: 14, color: colors.ink,
+              letterSpacing: 0.5, outline: "none",
+            }}
+          />
+        </div>
 
-        <div style={{ height: 10 }} />
-        <textarea
-          value={customNote}
-          onChange={(e) => { setCustomNote(e.target.value); setNudge(false); }}
-          placeholder="Micromanage notes (optional · +$1)"
-
-          maxLength={1000}
-          disabled={!!clientSecret}
-          style={{
-            width: "100%", minHeight: 56, padding: "14px 16px",
-            border: `1px solid ${nudge ? "rgba(232,152,171,0.4)" : "rgba(232,152,171,0.15)"}`,
-            borderRadius: 12, background: "rgba(255,255,255,0.5)",
-            fontFamily: fonts.body, fontSize: 16, color: colors.ink,
-            letterSpacing: 1, lineHeight: 1.6, resize: "vertical",
-            outline: "none", boxSizing: "border-box",
-            opacity: clientSecret ? 0.5 : 1,
-            transition: "border-color 0.3s",
-          }}
-        />
+        <div style={{
+          display: "flex", alignItems: "flex-start", gap: 8,
+          padding: "12px 16px",
+          border: `1px solid ${nudge ? "rgba(232,152,171,0.4)" : "rgba(232,152,171,0.15)"}`,
+          borderRadius: 12, background: "rgba(255,255,255,0.5)",
+          opacity: clientSecret ? 0.5 : 1,
+          transition: "border-color 0.3s",
+        }}>
+          <span style={{ fontSize: 13, flexShrink: 0, opacity: 0.6, marginTop: 1 }}>📝</span>
+          <textarea
+            value={customNote}
+            onChange={(e) => { setCustomNote(e.target.value); setNudge(false); }}
+            placeholder="Micromanage (+$1)"
+            maxLength={1000}
+            disabled={!!clientSecret}
+            style={{
+              flex: 1, padding: 0, minHeight: 40, border: "none", background: "transparent",
+              fontFamily: fonts.body, fontSize: 14, color: colors.ink,
+              letterSpacing: 0.5, lineHeight: 1.6, resize: "vertical",
+              outline: "none",
+            }}
+          />
+        </div>
         {!hasMicromanage && !nudge && (
           <div style={{
             fontFamily: fonts.body, fontSize: 10, color: colors.inkLight,
