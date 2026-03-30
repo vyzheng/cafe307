@@ -370,8 +370,8 @@ PaymentForm.propTypes = {
 function RequestsTab({ userCode }) {
   const [dishName, setDishName] = useState("");
   const [email, setEmail] = useState("");
-  const [isCustom, setIsCustom] = useState(false);
   const [customNote, setCustomNote] = useState("");
+  const [nudge, setNudge] = useState(false);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -389,16 +389,16 @@ function RequestsTab({ userCode }) {
     fetchRequests();
   }, []);
 
+  // Derived: is this a micromanage request?
+  const hasMicromanage = customNote.trim().length > 0;
+
   const handleRequest = async () => {
     const trimmed = dishName.trim();
     if (!trimmed) return;
-    if (isCustom && !customNote.trim()) {
-      setError("Please describe how you'd like it made.");
-      return;
-    }
     setLoading(true);
     setError(null);
     setSuccessMsg(null);
+    setNudge(false);
     try {
       const res = await fetch(`${API_BASE}/api/requests/create-payment-intent`, {
         method: "POST",
@@ -408,8 +408,8 @@ function RequestsTab({ userCode }) {
         },
         body: JSON.stringify({
           dishName: trimmed,
-          isCustom,
-          customNote: isCustom ? customNote.trim() : undefined,
+          isCustom: hasMicromanage,
+          customNote: hasMicromanage ? customNote.trim() : undefined,
         }),
       });
       if (!res.ok) throw new Error("Failed to create payment");
@@ -447,8 +447,8 @@ function RequestsTab({ userCode }) {
     setClientSecret(null);
     setDishName("");
     setEmail("");
-    setIsCustom(false);
     setCustomNote("");
+    setNudge(false);
     if (confirmOk) {
       setSuccessMsg(`✨ ${dishName.trim()} requested!`);
     } else {
@@ -495,8 +495,16 @@ function RequestsTab({ userCode }) {
 
   return (
     <div style={{ ...mainView.card, padding: "48px 36px", overflow: "hidden" }}>
+      {/* Sparkle shine animation for micromanage button */}
+      <style>{`
+        @keyframes cafe307-shine {
+          0% { left: -100%; }
+          30% { left: 150%; }
+          100% { left: 150%; }
+        }
+      `}</style>
       {/* Header */}
-      <div style={{ textAlign: "center", marginBottom: 8 }}>
+      <div style={{ textAlign: "center", marginBottom: 16 }}>
         <div style={{ fontSize: 22, marginBottom: 8 }}>🌟</div>
         <div style={{
           fontFamily: fonts.display, fontSize: 20, fontWeight: 300,
@@ -518,121 +526,108 @@ function RequestsTab({ userCode }) {
         </div>
       </div>
 
-      <SectionDivider />
-
-      {/* Input + Button + Inline Payment */}
+      {/* Input fields + Button */}
       <div style={{ marginBottom: 24 }}>
+        {/* Dish field */}
+        <div style={{
+          fontFamily: fonts.body, fontSize: 10, letterSpacing: 2,
+          color: colors.inkLight, textTransform: "uppercase", marginBottom: 6,
+        }}>
+          Dish
+        </div>
         <input
           type="text"
           value={dishName}
-          onChange={(e) => setDishName(e.target.value)}
+          onChange={(e) => { setDishName(e.target.value); setNudge(false); }}
           onKeyDown={(e) => { if (e.key === "Enter" && !clientSecret) handleRequest(); }}
           placeholder="e.g. Mapo Tofu, Char Siu Bao..."
           disabled={!!clientSecret}
           style={{
-            width: "100%", padding: "14px 0", border: "none",
-            borderBottom: `1px solid rgba(232,152,171,0.3)`,
-            background: "transparent", fontFamily: fonts.body, fontSize: 16,
-            color: colors.ink, textAlign: "center", letterSpacing: 1,
+            width: "100%", padding: "12px 14px",
+            border: "1px solid rgba(232,152,171,0.15)",
+            borderRadius: 12, background: "rgba(255,255,255,0.5)",
+            fontFamily: fonts.body, fontSize: 16,
+            color: colors.ink, letterSpacing: 1,
             outline: "none", boxSizing: "border-box",
             opacity: clientSecret ? 0.5 : 1,
           }}
         />
-        {/* $1 Chef's Choice / $2 Custom toggle */}
-        {!clientSecret && dishName.trim() && (
-          <div style={{ marginTop: 16 }}>
-            <div style={{
-              display: "flex", borderRadius: 12, overflow: "hidden",
-              border: "1px solid rgba(232,152,171,0.2)", marginBottom: 12,
-            }}>
-              {[
-                { custom: false, label: "Chef's Choice · $1", sub: "up to the chef" },
-                { custom: true, label: "Custom · $2", sub: "your way" },
-              ].map((opt, i) => {
-                const isActive = isCustom === opt.custom;
-                return (
-                  <div
-                    key={i}
-                    onClick={() => setIsCustom(opt.custom)}
-                    style={{
-                      flex: 1, padding: "12px 8px", textAlign: "center",
-                      cursor: "pointer", transition: "all 0.25s ease",
-                      background: isActive
-                        ? "linear-gradient(135deg, rgba(244,180,195,0.25), rgba(232,224,240,0.3))"
-                        : "rgba(255,255,255,0.4)",
-                      borderRight: i === 0 ? "1px solid rgba(232,152,171,0.15)" : "none",
-                    }}
-                  >
-                    <div style={{
-                      fontFamily: fonts.body, fontSize: 12, letterSpacing: 1,
-                      color: isActive ? colors.ink : colors.inkLight,
-                      fontWeight: isActive ? 500 : 400,
-                    }}>
-                      {opt.label}
-                    </div>
-                    <div style={{
-                      fontFamily: fonts.body, fontSize: 9, color: colors.inkLight,
-                      marginTop: 3, fontStyle: "italic", letterSpacing: 0.5,
-                    }}>
-                      {opt.sub}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
 
-            {/* Custom note input — only shown for $2 */}
-            {isCustom && (
-              <textarea
-                value={customNote}
-                onChange={(e) => setCustomNote(e.target.value)}
-                placeholder="Describe how you'd like it, or paste a link..."
-                maxLength={1000}
-                style={{
-                  width: "100%", minHeight: 72, padding: "12px 14px",
-                  border: "1px solid rgba(232,152,171,0.2)",
-                  borderRadius: 12, background: "rgba(255,255,255,0.5)",
-                  fontFamily: fonts.body, fontSize: 13, color: colors.ink,
-                  letterSpacing: 0.5, lineHeight: 1.6, resize: "vertical",
-                  outline: "none", boxSizing: "border-box",
-                  marginBottom: 12,
-                }}
-              />
-            )}
-
-            <button
-              onClick={handleRequest}
-              disabled={loading || !dishName.trim() || (isCustom && !customNote.trim())}
-              style={{
-                display: "block", width: "100%",
-                padding: "14px 0", border: "none",
-                background: "linear-gradient(135deg, rgba(244,180,195,0.2), rgba(232,224,240,0.25))",
-                borderRadius: 14, fontFamily: fonts.body, fontSize: 14,
-                letterSpacing: 2.5, color: colors.ink,
-                cursor: dishName.trim() ? "pointer" : "default",
-                transition: "all 0.3s",
-                opacity: (dishName.trim() && (!isCustom || customNote.trim())) ? 1 : 0.5,
-              }}
-            >
-              {loading ? "Loading..." : `Request · $${isCustom ? 2 : 1}`}
-            </button>
+        {/* Micromanage field */}
+        <div style={{ height: 14 }} />
+        <div style={{
+          fontFamily: fonts.body, fontSize: 10, letterSpacing: 2,
+          color: colors.inkLight, textTransform: "uppercase", marginBottom: 6,
+        }}>
+          Micromanage{" "}
+          <span style={{ fontStyle: "italic", textTransform: "none", letterSpacing: 0 }}>
+            (optional · +$1)
+          </span>
+        </div>
+        <textarea
+          value={customNote}
+          onChange={(e) => { setCustomNote(e.target.value); setNudge(false); }}
+          placeholder="How should the chef make it? Paste a link or describe..."
+          maxLength={1000}
+          disabled={!!clientSecret}
+          style={{
+            width: "100%", minHeight: 56, padding: "12px 14px",
+            border: `1px solid ${nudge ? "rgba(232,152,171,0.4)" : "rgba(232,152,171,0.15)"}`,
+            borderRadius: 12, background: "rgba(255,255,255,0.4)",
+            fontFamily: fonts.body, fontSize: 13, color: colors.ink,
+            letterSpacing: 0.5, lineHeight: 1.6, resize: "vertical",
+            outline: "none", boxSizing: "border-box",
+            opacity: clientSecret ? 0.5 : 1,
+            transition: "border-color 0.3s",
+          }}
+        />
+        {!hasMicromanage && !nudge && (
+          <div style={{
+            fontFamily: fonts.body, fontSize: 10, color: colors.inkLight,
+            fontStyle: "italic", marginTop: 4, textAlign: "right", opacity: 0.7,
+          }}>
+            Leave empty for chef's choice
           </div>
         )}
 
-        {/* Show simple request button when no dish name entered */}
-        {!clientSecret && !dishName.trim() && (
+        {/* Nudge message */}
+        {nudge && (
+          <div style={{
+            textAlign: "center", marginTop: 10,
+            fontFamily: fonts.body, fontSize: 11,
+            color: colors.pinkDeep, fontStyle: "italic", letterSpacing: 0.3,
+          }}>
+            ✨ Micromanaging is $2 — or clear the field for $1 chef&rsquo;s choice
+          </div>
+        )}
+
+        {/* Submit button — auto-switches between $1 and $2 */}
+        {!clientSecret && (
           <button
-            disabled
+            onClick={handleRequest}
+            disabled={loading || !dishName.trim()}
             style={{
               display: "block", width: "100%", marginTop: 16,
               padding: "14px 0", border: "none",
               background: "linear-gradient(135deg, rgba(244,180,195,0.2), rgba(232,224,240,0.25))",
               borderRadius: 14, fontFamily: fonts.body, fontSize: 14,
-              letterSpacing: 2.5, color: colors.ink,
-              cursor: "default", transition: "all 0.3s", opacity: 0.5,
+              letterSpacing: 2, color: colors.ink,
+              cursor: dishName.trim() ? "pointer" : "default",
+              transition: "all 0.3s",
+              opacity: dishName.trim() ? 1 : 0.5,
+              position: "relative", overflow: "hidden",
             }}
           >
-            Request · $1
+            {loading ? "Loading..." : hasMicromanage ? "Micromanage · $2" : "Request · $1"}
+            {hasMicromanage && !loading && (
+              <span style={{
+                position: "absolute", top: 0, left: "-100%",
+                width: "60%", height: "100%",
+                background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)",
+                animation: "cafe307-shine 3s ease-in-out infinite",
+                pointerEvents: "none",
+              }} />
+            )}
           </button>
         )}
 
@@ -640,7 +635,7 @@ function RequestsTab({ userCode }) {
         {clientSecret && stripePromise && elementsOptions && (
           <PaymentErrorBoundary onCancel={handleCancel}>
             <Elements stripe={stripePromise} options={elementsOptions}>
-              <PaymentForm clientSecret={clientSecret} email={email} setEmail={setEmail} onSuccess={handlePaymentSuccess} onCancel={handleCancel} amount={isCustom ? 200 : 100} />
+              <PaymentForm clientSecret={clientSecret} email={email} setEmail={setEmail} onSuccess={handlePaymentSuccess} onCancel={handleCancel} amount={hasMicromanage ? 200 : 100} />
             </Elements>
           </PaymentErrorBoundary>
         )}
