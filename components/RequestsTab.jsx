@@ -259,19 +259,26 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
         })}
       </div>
 
-      {/* Wallet tab — rendered offscreen when inactive so Stripe iframe fully pre-loads */}
-      <div style={activeTab === "wallet" ? {} : { position: "absolute", left: -9999, opacity: 0, pointerEvents: "none" }}>
+      {/* Wallet tab */}
+      <div style={activeTab === "wallet" ? {} : { display: "none" }}>
         {showWallet ? (
-          <div style={{
-            marginBottom: 16,
-            opacity: walletSettled ? 1 : 0,
-          }}>
-            <PaymentRequestButtonElement
-              onReady={() => setWalletReady(true)}
-              options={{ paymentRequest, style: {
-                paymentRequestButton: { type: "default", theme: "light-outline", height: "48px" },
-              } }}
-            />
+          <div style={{ marginBottom: 16 }}>
+            {/* Render in a clipped container until settled, then swap to visible */}
+            <div style={walletSettled ? {} : { height: 0, overflow: "hidden" }}>
+              <PaymentRequestButtonElement
+                onReady={() => setWalletReady(true)}
+                options={{ paymentRequest, style: {
+                  paymentRequestButton: { type: "default", theme: "light-outline", height: "48px" },
+                } }}
+              />
+            </div>
+            {!walletSettled && (
+              <div style={{
+                height: 48, borderRadius: 4,
+                background: "rgba(255,255,255,0.3)",
+                border: "1px solid rgba(232,152,171,0.15)",
+              }} />
+            )}
           </div>
         ) : walletChecked ? (
           <div style={{
@@ -284,8 +291,8 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
         ) : null}
       </div>
 
-      {/* Card tab — rendered offscreen when inactive so Stripe iframe fully pre-loads */}
-      <div style={activeTab === "card" ? {} : { position: "absolute", left: -9999, opacity: 0, pointerEvents: "none" }}>
+      {/* Card tab */}
+      <div style={activeTab === "card" ? {} : { display: "none" }}>
         <form onSubmit={handlePay}>
           <div style={{
             borderRadius: 14,
