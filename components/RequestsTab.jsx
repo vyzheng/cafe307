@@ -243,24 +243,26 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
         })}
       </div>
 
-      {activeTab === "wallet" && paymentRequest && (
-        <div style={{ marginBottom: 16 }}>
-          <PaymentRequestButtonElement options={{ paymentRequest, style: {
-            paymentRequestButton: { type: "default", theme: "light-outline", height: "48px" },
-          } }} />
-        </div>
-      )}
-      {activeTab === "wallet" && !paymentRequest && (
-        <div style={{
-          textAlign: "center", padding: "20px 12px",
-          fontFamily: fonts.body, fontSize: 12, color: colors.inkLight, fontStyle: "italic",
-        }}>
-          Apple Pay / Google Pay not available in this browser.
-          <br />Try Safari on macOS or Chrome on Android.
-        </div>
-      )}
+      {/* Both tabs rendered always — hidden via display:none so Stripe iframes stay mounted */}
+      <div style={{ display: activeTab === "wallet" ? "block" : "none" }}>
+        {paymentRequest ? (
+          <div style={{ marginBottom: 16 }}>
+            <PaymentRequestButtonElement options={{ paymentRequest, style: {
+              paymentRequestButton: { type: "default", theme: "light-outline", height: "48px" },
+            } }} />
+          </div>
+        ) : (
+          <div style={{
+            textAlign: "center", padding: "20px 12px",
+            fontFamily: fonts.body, fontSize: 12, color: colors.inkLight, fontStyle: "italic",
+          }}>
+            Apple Pay / Google Pay not available in this browser.
+            <br />Try Safari on macOS or Chrome on Android.
+          </div>
+        )}
+      </div>
 
-      {activeTab === "card" && (
+      <div style={{ display: activeTab === "card" ? "block" : "none" }}>
         <form onSubmit={handlePay}>
           <div style={{
             borderRadius: 14,
@@ -286,7 +288,7 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
             {paying ? "Processing..." : `Pay $${(amount || 100) / 100}`}
           </button>
         </form>
-      )}
+      </div>
 
       {payError && (
         <div style={{
