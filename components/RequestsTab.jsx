@@ -12,7 +12,7 @@
  *   6. The wishes list re-fetches and the new request appears, ranked by count
  */
 
-import { useState, useEffect, useMemo, Component } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, Component } from "react";
 import PropTypes from "prop-types";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -110,7 +110,7 @@ const TABS = [
     2. Confirm it with the card details already entered
   Result: zero loading delay — form appears the moment they click Request.
 */
-function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSuccess, onCancel, amount }) {
+function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSuccess, onCancel, amount, prefetchedSecret }) {
   const stripe = useStripe();
   const elements = useElements();
   const [paying, setPaying] = useState(false);
@@ -132,15 +132,19 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
       if (result) setPaymentRequest(pr);
     });
     pr.on("paymentmethod", async (ev) => {
-      // For wallet payments, create intent then confirm
+      // For wallet payments, use prefetched secret or create one
       try {
-        const res = await fetch(`${API_BASE}/api/requests/create-payment-intent`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Reservation-Code": userCode },
-          body: JSON.stringify({ dishName, isCustom, customNote: isCustom ? customNote : undefined }),
-        });
-        if (!res.ok) { ev.complete("fail"); setPayError("Failed to create payment"); return; }
-        const { clientSecret } = await res.json();
+        let clientSecret = prefetchedSecret;
+        if (!clientSecret) {
+          const res = await fetch(`${API_BASE}/api/requests/create-payment-intent`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Reservation-Code": userCode },
+            body: JSON.stringify({ dishName, isCustom, customNote: isCustom ? customNote : undefined }),
+          });
+          if (!res.ok) { ev.complete("fail"); setPayError("Failed to create payment"); return; }
+          const data = await res.json();
+          clientSecret = data.clientSecret;
+        }
         const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
           clientSecret,
           { payment_method: ev.paymentMethod.id },
@@ -170,21 +174,23 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
     setPaying(true);
     setPayError(null);
 
-    // Step 1: Create PaymentIntent now
-    let clientSecret;
-    try {
-      const res = await fetch(`${API_BASE}/api/requests/create-payment-intent`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Reservation-Code": userCode },
-        body: JSON.stringify({ dishName, isCustom, customNote: isCustom ? customNote : undefined }),
-      });
-      if (!res.ok) throw new Error("Failed to create payment");
-      const data = await res.json();
-      clientSecret = data.clientSecret;
-    } catch {
-      setPayError("Something went wrong. Please try again.");
-      setPaying(false);
-      return;
+    // Step 1: Use pre-fetched secret or create one now
+    let clientSecret = prefetchedSecret;
+    if (!clientSecret) {
+      try {
+        const res = await fetch(`${API_BASE}/api/requests/create-payment-intent`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Reservation-Code": userCode },
+          body: JSON.stringify({ dishName, isCustom, customNote: isCustom ? customNote : undefined }),
+        });
+        if (!res.ok) throw new Error("Failed to create payment");
+        const data = await res.json();
+        clientSecret = data.clientSecret;
+      } catch {
+        setPayError("Something went wrong. Please try again.");
+        setPaying(false);
+        return;
+      }
     }
 
     // Step 2: Confirm with card already entered
@@ -303,6 +309,7 @@ PaymentForm.propTypes = {
   onSuccess: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
   amount: PropTypes.number,
+  prefetchedSecret: PropTypes.string,
 };
 
 function RequestsTab({ userCode }) {
@@ -317,6 +324,36 @@ function RequestsTab({ userCode }) {
   const [showPayment, setShowPayment] = useState(false);
   const [successMsg, setSuccessMsg] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null); // dish name pending delete
+
+  // Pre-fetched PaymentIntent cache
+  const prefetchRef = useRef({ secret: null, isCustom: false, dishName: "", fetching: false });
+  const debounceRef = useRef(null);
+
+  const prefetchIntent = useCallback((dish, isCustom, note) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      const trimmed = (dish || "").trim();
+      if (!trimmed) return;
+      // Skip if already fetched for same params
+      const cache = prefetchRef.current;
+      if (cache.secret && cache.dishName === trimmed && cache.isCustom === isCustom) return;
+      if (cache.fetching) return;
+      cache.fetching = true;
+      try {
+        const res = await fetch(`${API_BASE}/api/requests/create-payment-intent`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Reservation-Code": userCode },
+          body: JSON.stringify({ dishName: trimmed, isCustom, customNote: isCustom ? (note || "").trim() : undefined }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          prefetchRef.current = { secret: data.clientSecret, isCustom, dishName: trimmed, fetching: false };
+        } else {
+          cache.fetching = false;
+        }
+      } catch { cache.fetching = false; }
+    }, 400); // 400ms debounce
+  }, [userCode]);
 
   const fetchRequests = () => {
     fetch(`${API_BASE}/api/requests`)
@@ -336,6 +373,13 @@ function RequestsTab({ userCode }) {
 
   // Derived: is this a micromanage request?
   const hasMicromanage = customNote.trim().length > 0;
+
+  // Pre-fetch PaymentIntent as user types
+  useEffect(() => {
+    if (dishName.trim()) {
+      prefetchIntent(dishName, hasMicromanage, customNote);
+    }
+  }, [dishName, hasMicromanage, customNote, prefetchIntent]);
 
   const handleRequest = () => {
     const trimmed = dishName.trim();
@@ -372,6 +416,7 @@ function RequestsTab({ userCode }) {
     setDishName("");
     setCustomNote("");
     setNudge(false);
+    prefetchRef.current = { secret: null, isCustom: false, dishName: "", fetching: false };
     if (confirmOk) {
       setSuccessMsg(`✨ ${dishName.trim()} requested!`);
     } else {
@@ -383,6 +428,7 @@ function RequestsTab({ userCode }) {
 
   const handleCancel = () => {
     setShowPayment(false);
+    prefetchRef.current = { secret: null, isCustom: false, dishName: "", fetching: false };
   };
 
   /*
@@ -596,6 +642,7 @@ function RequestsTab({ userCode }) {
                 onSuccess={handlePaymentSuccess}
                 onCancel={handleCancel}
                 amount={hasMicromanage ? 200 : 100}
+                prefetchedSecret={prefetchRef.current.secret}
               />
             </Elements>
           </PaymentErrorBoundary>
