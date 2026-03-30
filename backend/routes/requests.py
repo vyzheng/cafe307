@@ -33,12 +33,14 @@ VALID_CODES = {"vivian", "vlad", "mushu", "gelato", "caramel", "tangyuan"}
 class CreatePaymentIntentBody(BaseModel):
     """Body for creating a Stripe PaymentIntent."""
     dishName: str
+    isCustom: bool = False       # True = $2 custom request with note
+    customNote: Optional[str] = None  # description or URL for custom requests
 
 
 class ConfirmPaymentBody(BaseModel):
     """Body for confirming payment after Stripe client-side flow completes."""
     paymentIntentId: str
-    email: Optional[str] = None  # optional receipt email; triggers Stripe email receipt
+    email: Optional[str] = None  # optional email for branded Cafe 307 receipt
 
 
 def _require_logged_in(
@@ -88,12 +90,29 @@ def list_requests(db: Session = Depends(get_db)):
     )
     granted_map = {r.dish_name: r.granted_at for r in granted_rows}
 
+    # Gather custom notes per dish (most recent first)
+    custom_rows = (
+        db.query(DishRequest.dish_name, DishRequest.custom_note, DishRequest.user_code)
+        .filter(DishRequest.is_custom == True, DishRequest.custom_note.isnot(None))
+        .order_by(DishRequest.created_at.desc())
+        .all()
+    )
+    custom_notes = {}
+    for row in custom_rows:
+        if row.dish_name not in custom_notes:
+            custom_notes[row.dish_name] = []
+        custom_notes[row.dish_name].append({
+            "note": row.custom_note,
+            "by": row.user_code,
+        })
+
     return [
         {
             "dishName": r.dish_name,
             "count": r.count,
             "requestedBy": requesters.get(r.dish_name, []),
             "granted": granted_map.get(r.dish_name) is not None,
+            "customNotes": custom_notes.get(r.dish_name, []),
         }
         for r in count_results
     ]
@@ -104,18 +123,30 @@ def create_payment_intent(
     body: CreatePaymentIntentBody,
     user_code: str = Depends(_require_logged_in),
 ):
-    """Create a Stripe PaymentIntent for a $1 dish request."""
+    """Create a Stripe PaymentIntent: $1 for chef's choice, $2 for custom."""
     dish_name = (body.dishName or "").strip().title()
     if not dish_name or len(dish_name) > 200:
         raise HTTPException(status_code=400, detail="Invalid dish name")
 
+    is_custom = body.isCustom
+    custom_note = (body.customNote or "").strip() if is_custom else ""
+
+    if is_custom and not custom_note:
+        raise HTTPException(status_code=400, detail="Custom requests need a description or URL")
+    if custom_note and len(custom_note) > 1000:
+        raise HTTPException(status_code=400, detail="Custom note too long")
+
+    amount = 200 if is_custom else 100  # $2 custom, $1 chef's choice
+
     intent = stripe.PaymentIntent.create(
-        amount=100,
+        amount=amount,
         currency="usd",
         payment_method_types=["card", "link"],
         metadata={
             "dish_name": dish_name,
             "user_code": user_code,
+            "is_custom": "true" if is_custom else "false",
+            "custom_note": custom_note,
         },
     )
     return {"clientSecret": intent.client_secret}
@@ -128,6 +159,8 @@ def confirm_payment(
     db: Session = Depends(get_db),
 ):
     """Verify a PaymentIntent succeeded with Stripe and record the dish request."""
+    from backend.email_receipt import send_receipt
+
     payment_intent_id = (body.paymentIntentId or "").strip()
     if not payment_intent_id:
         raise HTTPException(status_code=400, detail="Missing paymentIntentId")
@@ -141,19 +174,10 @@ def confirm_payment(
     if intent.status != "succeeded":
         raise HTTPException(status_code=400, detail="Payment not completed")
 
-    # If the guest provided an email, attach it to the PaymentIntent so
-    # Stripe sends them an automatic email receipt. This is done post-payment
-    # because the email is collected on the confirmation screen, not at
-    # PaymentIntent creation time. Failure here is non-critical.
-    receipt_email = (body.email or "").strip().lower()
-    if receipt_email:
-        try:
-            stripe.PaymentIntent.modify(payment_intent_id, receipt_email=receipt_email)
-        except Exception:
-            pass  # payment already succeeded; receipt is best-effort
-
     dish_name = intent.metadata.get("dish_name", "").strip().title()
     meta_user = intent.metadata.get("user_code", "").strip().lower()
+    is_custom = intent.metadata.get("is_custom") == "true"
+    custom_note = intent.metadata.get("custom_note", "").strip() or None
 
     if not dish_name or meta_user != user_code:
         raise HTTPException(status_code=400, detail="Payment metadata mismatch")
@@ -165,14 +189,29 @@ def confirm_payment(
     if existing:
         return {"status": "already_recorded"}
 
+    receipt_email = (body.email or "").strip().lower() or None
+
     new_request = DishRequest(
         dish_name=dish_name,
         user_code=user_code,
         stripe_payment_intent_id=payment_intent_id,
+        is_custom=is_custom,
+        custom_note=custom_note,
+        receipt_email=receipt_email,
         created_at=datetime.utcnow(),
     )
     db.add(new_request)
     db.commit()
+
+    # Send branded Cafe 307 receipt (best-effort, non-blocking)
+    if receipt_email:
+        send_receipt(
+            to_email=receipt_email,
+            dish_name=dish_name,
+            amount_cents=intent.amount,
+            is_custom=is_custom,
+            custom_note=custom_note,
+        )
 
     return {"status": "ok"}
 

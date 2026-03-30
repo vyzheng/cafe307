@@ -84,6 +84,14 @@ class DishRequest(Base):
     # the confirm endpoint idempotent (safe to call multiple times).
     stripe_payment_intent_id = Column(String(256), nullable=False, unique=True)
 
+    # $2 custom requests include a note (description or URL) for how the
+    # guest wants the dish prepared. $1 requests leave this null (chef's choice).
+    is_custom = Column(Boolean, nullable=False, default=False)
+    custom_note = Column(Text, nullable=True)
+
+    # Optional email for sending a branded Cafe 307 receipt after payment.
+    receipt_email = Column(String(256), nullable=True)
+
     created_at = Column(DateTime, nullable=False)
     # When the chef grants this wish, granted_at is set on ALL requests
     # sharing the same dish_name (they're treated as one "wish").

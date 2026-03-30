@@ -103,7 +103,7 @@ const TABS = [
   to access the card input or confirm a payment — so this component can never
   be lifted above the <Elements> wrapper.
 */
-function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel }) {
+function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel, amount }) {
   const stripe = useStripe();
   const elements = useElements();
   const [paying, setPaying] = useState(false);
@@ -127,7 +127,7 @@ function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel }) {
     const pr = stripe.paymentRequest({
       country: "US",
       currency: "usd",
-      total: { label: "Dish Request", amount: 100 },
+      total: { label: "Dish Request", amount: amount || 100 },
       requestPayerName: false,
       requestPayerEmail: false,
     });
@@ -284,7 +284,7 @@ function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel }) {
               cursor: "pointer", transition: "all 0.3s", opacity: paying ? 0.6 : 1,
             }}
           >
-            {paying ? "Processing..." : "Pay $1"}
+            {paying ? "Processing..." : `Pay $${(amount || 100) / 100}`}
           </button>
         </div>
       )}
@@ -341,7 +341,7 @@ function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel }) {
               transition: "all 0.3s", opacity: paying ? 0.6 : 1,
             }}
           >
-            {paying ? "Processing..." : "Pay $1"}
+            {paying ? "Processing..." : `Pay $${(amount || 100) / 100}`}
           </button>
         </form>
       )}
@@ -364,11 +364,14 @@ PaymentForm.propTypes = {
   setEmail: PropTypes.func.isRequired,
   onSuccess: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
+  amount: PropTypes.number,
 };
 
 function RequestsTab({ userCode }) {
   const [dishName, setDishName] = useState("");
   const [email, setEmail] = useState("");
+  const [isCustom, setIsCustom] = useState(false);
+  const [customNote, setCustomNote] = useState("");
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -389,6 +392,10 @@ function RequestsTab({ userCode }) {
   const handleRequest = async () => {
     const trimmed = dishName.trim();
     if (!trimmed) return;
+    if (isCustom && !customNote.trim()) {
+      setError("Please describe how you'd like it made.");
+      return;
+    }
     setLoading(true);
     setError(null);
     setSuccessMsg(null);
@@ -399,7 +406,11 @@ function RequestsTab({ userCode }) {
           "Content-Type": "application/json",
           "X-Reservation-Code": userCode,
         },
-        body: JSON.stringify({ dishName: trimmed }),
+        body: JSON.stringify({
+          dishName: trimmed,
+          isCustom,
+          customNote: isCustom ? customNote.trim() : undefined,
+        }),
       });
       if (!res.ok) throw new Error("Failed to create payment");
       const data = await res.json();
@@ -436,6 +447,8 @@ function RequestsTab({ userCode }) {
     setClientSecret(null);
     setDishName("");
     setEmail("");
+    setIsCustom(false);
+    setCustomNote("");
     if (confirmOk) {
       setSuccessMsg(`✨ ${dishName.trim()} requested!`);
     } else {
@@ -525,22 +538,101 @@ function RequestsTab({ userCode }) {
             opacity: clientSecret ? 0.5 : 1,
           }}
         />
-        {!clientSecret && (
+        {/* $1 Chef's Choice / $2 Custom toggle */}
+        {!clientSecret && dishName.trim() && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{
+              display: "flex", borderRadius: 12, overflow: "hidden",
+              border: "1px solid rgba(232,152,171,0.2)", marginBottom: 12,
+            }}>
+              {[
+                { custom: false, label: "Chef's Choice · $1", sub: "up to the chef" },
+                { custom: true, label: "Custom · $2", sub: "your way" },
+              ].map((opt, i) => {
+                const isActive = isCustom === opt.custom;
+                return (
+                  <div
+                    key={i}
+                    onClick={() => setIsCustom(opt.custom)}
+                    style={{
+                      flex: 1, padding: "12px 8px", textAlign: "center",
+                      cursor: "pointer", transition: "all 0.25s ease",
+                      background: isActive
+                        ? "linear-gradient(135deg, rgba(244,180,195,0.25), rgba(232,224,240,0.3))"
+                        : "rgba(255,255,255,0.4)",
+                      borderRight: i === 0 ? "1px solid rgba(232,152,171,0.15)" : "none",
+                    }}
+                  >
+                    <div style={{
+                      fontFamily: fonts.body, fontSize: 12, letterSpacing: 1,
+                      color: isActive ? colors.ink : colors.inkLight,
+                      fontWeight: isActive ? 500 : 400,
+                    }}>
+                      {opt.label}
+                    </div>
+                    <div style={{
+                      fontFamily: fonts.body, fontSize: 9, color: colors.inkLight,
+                      marginTop: 3, fontStyle: "italic", letterSpacing: 0.5,
+                    }}>
+                      {opt.sub}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Custom note input — only shown for $2 */}
+            {isCustom && (
+              <textarea
+                value={customNote}
+                onChange={(e) => setCustomNote(e.target.value)}
+                placeholder="Describe how you'd like it, or paste a link..."
+                maxLength={1000}
+                style={{
+                  width: "100%", minHeight: 72, padding: "12px 14px",
+                  border: "1px solid rgba(232,152,171,0.2)",
+                  borderRadius: 12, background: "rgba(255,255,255,0.5)",
+                  fontFamily: fonts.body, fontSize: 13, color: colors.ink,
+                  letterSpacing: 0.5, lineHeight: 1.6, resize: "vertical",
+                  outline: "none", boxSizing: "border-box",
+                  marginBottom: 12,
+                }}
+              />
+            )}
+
+            <button
+              onClick={handleRequest}
+              disabled={loading || !dishName.trim() || (isCustom && !customNote.trim())}
+              style={{
+                display: "block", width: "100%",
+                padding: "14px 0", border: "none",
+                background: "linear-gradient(135deg, rgba(244,180,195,0.2), rgba(232,224,240,0.25))",
+                borderRadius: 14, fontFamily: fonts.body, fontSize: 14,
+                letterSpacing: 2.5, color: colors.ink,
+                cursor: dishName.trim() ? "pointer" : "default",
+                transition: "all 0.3s",
+                opacity: (dishName.trim() && (!isCustom || customNote.trim())) ? 1 : 0.5,
+              }}
+            >
+              {loading ? "Loading..." : `Request · $${isCustom ? 2 : 1}`}
+            </button>
+          </div>
+        )}
+
+        {/* Show simple request button when no dish name entered */}
+        {!clientSecret && !dishName.trim() && (
           <button
-            onClick={handleRequest}
-            disabled={loading || !dishName.trim()}
+            disabled
             style={{
               display: "block", width: "100%", marginTop: 16,
               padding: "14px 0", border: "none",
               background: "linear-gradient(135deg, rgba(244,180,195,0.2), rgba(232,224,240,0.25))",
               borderRadius: 14, fontFamily: fonts.body, fontSize: 14,
               letterSpacing: 2.5, color: colors.ink,
-              cursor: dishName.trim() ? "pointer" : "default",
-              transition: "all 0.3s",
-              opacity: dishName.trim() ? 1 : 0.5,
+              cursor: "default", transition: "all 0.3s", opacity: 0.5,
             }}
           >
-            {loading ? "Loading..." : "Request · $1"}
+            Request · $1
           </button>
         )}
 
@@ -548,7 +640,7 @@ function RequestsTab({ userCode }) {
         {clientSecret && stripePromise && elementsOptions && (
           <PaymentErrorBoundary onCancel={handleCancel}>
             <Elements stripe={stripePromise} options={elementsOptions}>
-              <PaymentForm clientSecret={clientSecret} email={email} setEmail={setEmail} onSuccess={handlePaymentSuccess} onCancel={handleCancel} />
+              <PaymentForm clientSecret={clientSecret} email={email} setEmail={setEmail} onSuccess={handlePaymentSuccess} onCancel={handleCancel} amount={isCustom ? 200 : 100} />
             </Elements>
           </PaymentErrorBoundary>
         )}
@@ -663,6 +755,26 @@ function RequestsTab({ userCode }) {
                     marginTop: 6, letterSpacing: 0.5,
                   }}>
                     {r.requestedBy.join(", ")}
+                  </div>
+                )}
+                {/* Custom notes from $2 requests */}
+                {r.customNotes && r.customNotes.length > 0 && (
+                  <div style={{ marginTop: 8 }}>
+                    {r.customNotes.map((cn, j) => (
+                      <div key={j} style={{
+                        fontFamily: fonts.body, fontSize: 11, color: colors.inkLight,
+                        fontStyle: "italic", lineHeight: 1.5, marginTop: 4,
+                        padding: "6px 12px",
+                        background: "rgba(244,180,195,0.08)",
+                        borderRadius: 8, borderLeft: "2px solid rgba(232,152,171,0.3)",
+                      }}>
+                        {cn.note.startsWith("http://") || cn.note.startsWith("https://")
+                          ? <a href={cn.note} target="_blank" rel="noopener noreferrer" style={{ color: "#B47B8A", textDecoration: "underline" }}>{cn.note}</a>
+                          : cn.note
+                        }
+                        <span style={{ fontSize: 9, opacity: 0.6, marginLeft: 6 }}>— {cn.by}</span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
