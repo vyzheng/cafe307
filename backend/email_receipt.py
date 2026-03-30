@@ -24,112 +24,83 @@ EMAIL_PASSWORD = os.environ.get("CAFE307_EMAIL_PASSWORD")
 
 
 def _build_receipt_html(dish_name: str, amount_cents: int, is_custom: bool, custom_note: str | None) -> str:
-    """Build a branded HTML receipt matching Cafe 307's pastel aesthetic."""
+    """Build a branded HTML receipt — clean, readable, mobile-first."""
+    from datetime import datetime
+
     amount_str = f"${amount_cents / 100:.2f}"
     request_type = "Custom Request" if is_custom else "Chef's Choice"
+    date_str = datetime.now().strftime("%b %d, %Y")
 
     custom_section = ""
     if is_custom and custom_note:
-        # Detect if the note is a URL
         note_display = custom_note
         if custom_note.startswith("http://") or custom_note.startswith("https://"):
             note_display = f'<a href="{custom_note}" style="color:#B47B8A;text-decoration:underline;">{custom_note}</a>'
         custom_section = f"""
-        <tr>
-          <td style="padding:12px 24px;font-family:'Georgia',serif;font-size:13px;color:#9B8B7A;letter-spacing:0.5px;">
-            Your request
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:0 24px 16px;font-family:'Georgia',serif;font-size:14px;color:#4A3728;font-style:italic;line-height:1.6;">
-            {note_display}
-          </td>
-        </tr>
-        """
+                  <div style="font-family:Georgia,serif;font-size:14px;color:#3A2A1A;font-style:italic;margin-top:6px;">"{note_display}"</div>"""
 
-    return f"""
-    <!DOCTYPE html>
+    return f"""<!DOCTYPE html>
     <html>
-    <head><meta charset="utf-8"></head>
-    <body style="margin:0;padding:0;background:#FDF6F8;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0;">
+    <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+    <body style="margin:0;padding:0;background:#FDFCFA;">
+      <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">
+        You made a wish! Visit cafe307.com to see the latest menu ✨
+      </div>
+      <table width="100%" cellpadding="0" cellspacing="0">
         <tr>
-          <td align="center">
-            <table width="420" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 2px 16px rgba(232,152,171,0.12);">
-              <!-- Header -->
+          <td align="center" style="padding:20px 16px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width:420px;">
+              <!-- Brand -->
               <tr>
-                <td style="background:linear-gradient(135deg,#F4B4C3,#E8E0F0);padding:32px 24px 28px;text-align:center;">
-                  <div style="font-size:20px;margin-bottom:8px;">🌟</div>
-                  <div style="font-family:'Georgia',serif;font-size:18px;color:#4A3728;letter-spacing:3px;font-weight:300;">
-                    Cafe 307
-                  </div>
-                  <div style="font-family:'Georgia',serif;font-size:9px;color:#4A3728;opacity:0.8;letter-spacing:2px;margin-top:6px;">
-                    私人晩ごはん
-                  </div>
+                <td style="padding:36px 24px 0;text-align:center;">
+                  <div style="font-family:Georgia,serif;font-size:16px;color:#3A2A1A;letter-spacing:4px;">Cafe 307</div>
+                  <div style="width:40px;height:2px;background:linear-gradient(to right,#F4B4C3,#DCC8E8);margin:14px auto 0;"></div>
                 </td>
               </tr>
-              <!-- Preview text — shows in email inbox preview -->
+              <!-- CTA -->
               <tr>
-                <td style="padding:24px 24px 4px;text-align:center;">
-                  <div style="font-family:'Georgia',serif;font-size:13px;color:#4A3728;font-style:italic;line-height:1.6;">
-                    You made a wish! Visit <a href="https://cafe307.com" style="color:#B47B8A;text-decoration:underline;">cafe307.com</a> to see the latest menu — your wish might be granted this week! ✨
+                <td style="padding:28px 28px 24px;text-align:center;">
+                  <div style="font-family:Georgia,serif;font-size:16px;color:#3A2A1A;line-height:1.8;">
+                    You made a wish! ✨
                   </div>
-                </td>
-              </tr>
-              <!-- Receipt title -->
-              <tr>
-                <td style="padding:12px 24px 8px;text-align:center;">
-                  <div style="font-family:'Georgia',serif;font-size:11px;color:#9B8B7A;letter-spacing:3px;text-transform:uppercase;">
-                    Receipt
-                  </div>
-                </td>
-              </tr>
-              <!-- Dish name -->
-              <tr>
-                <td style="padding:8px 24px;text-align:center;">
-                  <div style="font-family:'Georgia',serif;font-size:20px;color:#4A3728;font-weight:300;letter-spacing:1.5px;font-style:italic;">
-                    {dish_name}
+                  <div style="font-family:Georgia,serif;font-size:14px;color:#6B5D4F;line-height:1.8;margin-top:8px;">
+                    Visit <a href="https://cafe307.com" style="color:#B47B8A;text-decoration:underline;">cafe307.com</a> to see the latest menu — your wish might be granted this week!
                   </div>
                 </td>
               </tr>
               <!-- Divider -->
               <tr>
-                <td style="padding:16px 24px;">
-                  <div style="height:1px;background:linear-gradient(to right,transparent,rgba(232,152,171,0.3),transparent);"></div>
+                <td style="padding:0 24px;">
+                  <div style="height:1px;background:#EEEAE4;"></div>
                 </td>
               </tr>
-              <!-- Amount + type -->
+              <!-- Details: date, order, type, note -->
               <tr>
-                <td style="padding:0 24px;">
-                  <table width="100%" cellpadding="0" cellspacing="0">
+                <td style="text-align:center;padding:20px 24px 8px;">
+                  <div style="font-family:Georgia,serif;font-size:11px;color:#B0A898;letter-spacing:2px;text-transform:uppercase;margin-bottom:16px;">{date_str}</div>
+                  <div style="font-family:Georgia,serif;font-size:21px;color:#3A2A1A;font-style:italic;margin-bottom:16px;">{dish_name}</div>
+                  <div style="font-family:Georgia,serif;font-size:12px;color:#B0A898;margin-bottom:6px;">{request_type}</div>{custom_section}
+                </td>
+              </tr>
+              <!-- Total chip -->
+              <tr>
+                <td align="center" style="padding:12px 24px 28px;">
+                  <table cellpadding="0" cellspacing="0">
                     <tr>
-                      <td style="font-family:'Georgia',serif;font-size:13px;color:#9B8B7A;letter-spacing:0.5px;padding-right:12px;">
-                        {request_type}
-                      </td>
-                      <td align="right" style="font-family:'Georgia',serif;font-size:16px;color:#4A3728;font-weight:300;letter-spacing:1px;">
-                        {amount_str}
+                      <td style="background:#FAF5F0;border-radius:8px;padding:10px 24px;">
+                        <span style="font-family:Georgia,serif;font-size:13px;color:#9B8B7A;letter-spacing:1px;">Total</span>
+                        <span style="font-family:Georgia,serif;font-size:24px;color:#3A2A1A;padding-left:12px;letter-spacing:1px;">{amount_str}</span>
                       </td>
                     </tr>
                   </table>
                 </td>
               </tr>
-              <!-- Custom note (if $2 custom request) -->
-              {custom_section}
-              <!-- Divider -->
-              <tr>
-                <td style="padding:16px 24px;">
-                  <div style="height:1px;background:linear-gradient(to right,transparent,rgba(232,152,171,0.3),transparent);"></div>
-                </td>
-              </tr>
-              <!-- Bottom padding -->
-              <tr><td style="padding:0 0 24px;"></td></tr>
             </table>
           </td>
         </tr>
       </table>
     </body>
-    </html>
-    """
+    </html>"""
 
 
 def send_receipt(
@@ -152,7 +123,7 @@ def send_receipt(
 
     try:
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"Cafe 307 — {dish_name} ✨"
+        msg["Subject"] = f"Your receipt — {dish_name} ✨"
         msg["From"] = f"Cafe 307 <{EMAIL_ADDRESS}>"
         msg["To"] = to_email
 

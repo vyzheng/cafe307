@@ -260,11 +260,9 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
             style={{
               display: "flex", alignItems: "center", justifyContent: "center",
               width: "100%", padding: "13px 0", 
-              border: walletType === "link" ? "none" : "1px solid #e0e0e0",
+              border: "1px solid #e0e0e0",
               borderRadius: 12,
-              background: walletType === "link"
-                ? "linear-gradient(135deg, #00D66F, #00B35B)"
-                : "#000",
+              background: "#000",
               color: "#fff",
               fontFamily: fonts.body, fontSize: 13, fontWeight: 600,
               letterSpacing: 2, cursor: "pointer",
@@ -272,7 +270,7 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
               WebkitAppearance: "none",
             }}
           >
-            {walletType === "applePay" ? "Apple Pay" : walletType === "googlePay" ? "Google Pay" : "Pay with Link"}
+            {walletType === "applePay" ? "Apple Pay" : walletType === "googlePay" ? "Google Pay" : "Link"}
           </button>
         </>
       )}
@@ -625,7 +623,7 @@ function RequestsTab({ userCode }) {
                   display: "inline-flex", alignItems: "center", gap: 4,
                   marginBottom: 6,
                 }}>
-                  <span style={{ fontSize: 11 }}>{r.granted ? "🌟" : "⭐"}</span>
+                  <span style={{ fontSize: 11, filter: r.granted ? "none" : "grayscale(1) opacity(0.5)" }}>{r.granted ? "🌟" : "🌟"}</span>
                   <span style={{
                     fontFamily: fonts.body, fontSize: 9,
                     color: r.granted ? "#C4A265" : colors.inkLight,
