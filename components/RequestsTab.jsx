@@ -254,34 +254,7 @@ function PaymentForm({ clientSecret, email, setEmail, onSuccess, onCancel, amoun
             border: "1px solid rgba(232,152,171,0.15)",
             background: "rgba(255,255,255,0.5)",
           }}>
-            {/* Optional email field for receipt — if the user enters an
-                address here, the backend sends a confirmation email after
-                payment succeeds. Not required; left blank it's just skipped. */}
-            <div style={{ padding: "14px 14px", display: "flex", alignItems: "center" }}>
-              <span style={{
-                width: 19, height: 17, display: "inline-flex", alignItems: "center",
-                justifyContent: "center", flexShrink: 0, marginRight: 6, fontSize: 14,
-              }}>✉️</span>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email"
-                disabled={paying}
-                style={{
-                  flex: 1, padding: 0, border: "none",
-                  background: "transparent",
-                  fontFamily: "'Cormorant Garamond', serif", fontSize: "13.5px",
-                  fontWeight: 300,
-                  color: "#4A3728", letterSpacing: "0.5px",
-                  outline: "none", boxSizing: "border-box",
-                  opacity: paying ? 0.5 : 1,
-                  height: "15.6px", lineHeight: "15.6px",
-                }}
-              />
-              <style>{`input[type="email"]::placeholder { color: #9B8B7A !important; }`}</style>
-            </div>
-            <div style={{ height: 1, background: "rgba(232,152,171,0.15)" }} />
+            {/* Email field moved to top of form — persisted in localStorage */}
             <div style={{ padding: "14px 14px" }}>
               <CardElement options={{ style: cardStyle, hidePostalCode: true, disableLink: true }} />
             </div>
@@ -326,7 +299,9 @@ PaymentForm.propTypes = {
 
 function RequestsTab({ userCode }) {
   const [dishName, setDishName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => {
+    try { return localStorage.getItem("cafe307_email") || ""; } catch { return ""; }
+  });
   const [customNote, setCustomNote] = useState("");
   const [nudge, setNudge] = useState(false);
   const [requests, setRequests] = useState([]);
@@ -346,6 +321,11 @@ function RequestsTab({ userCode }) {
   useEffect(() => {
     fetchRequests();
   }, []);
+
+  // Persist email to localStorage
+  useEffect(() => {
+    try { localStorage.setItem("cafe307_email", email); } catch {}
+  }, [email]);
 
   // Derived: is this a micromanage request?
   const hasMicromanage = customNote.trim().length > 0;
@@ -501,6 +481,28 @@ function RequestsTab({ userCode }) {
 
       {/* Input fields + Button */}
       <div style={{ marginBottom: 24, marginTop: 8 }}>
+        {/* Persistent email field */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "12px 16px", marginBottom: 12,
+          border: "1px solid rgba(232,152,171,0.15)",
+          borderRadius: 12, background: "rgba(255,255,255,0.5)",
+        }}>
+          <span style={{ fontSize: 13, flexShrink: 0, opacity: 0.6 }}>✉️</span>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email for receipt (optional)"
+            style={{
+              flex: 1, padding: 0, border: "none", background: "transparent",
+              fontFamily: fonts.body, fontSize: 14, color: colors.ink,
+              letterSpacing: 0.5, outline: "none",
+            }}
+          />
+          <style>{`input[type="email"]::placeholder { color: #9B8B7A !important; }`}</style>
+        </div>
+
         <input
           type="text"
           value={dishName}
