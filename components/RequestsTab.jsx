@@ -627,8 +627,9 @@ function RequestsTab({ userCode }) {
                 )}
                 {/* Dish name */}
                 <div style={{
-                  fontFamily: fonts.body, fontSize: 18, fontWeight: 400,
-                  color: colors.ink, letterSpacing: 2,
+                  fontFamily: fonts.body, fontSize: 15, fontWeight: 400,
+                  fontStyle: "italic", color: colors.ink, letterSpacing: 0.5,
+                  lineHeight: 1.5,
                 }}>
                   {r.dishName}
                 </div>
