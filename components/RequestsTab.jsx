@@ -601,53 +601,33 @@ function RequestsTab({ userCode }) {
         </div>
       ) : (
         requests.map((r, i) => {
-          const canGrant = userCode === "vivian" || userCode === "vlad";
           return (
             <FadeIn key={r.dishName} delay={100 + i * 100}>
               <div style={{
                 textAlign: "center", padding: "24px 0",
                 borderBottom: i < requests.length - 1
                   ? "1px solid rgba(232,152,171,0.08)" : "none",
-                position: "relative", overflow: "hidden",
+                position: "relative",
               }}>
-                {/* "GRANTED" corner ribbon — wide enough to not clip */}
+                {/* Gold "Wish Granted" label above dish name */}
                 {r.granted && (
                   <div style={{
-                    position: "absolute", top: 12, right: -35,
-                    background: "linear-gradient(135deg, #F4B4C3, #E8E0F0)",
-                    color: colors.ink, fontSize: 7, fontWeight: 600,
-                    letterSpacing: 1.5, textTransform: "uppercase",
-                    padding: "3px 42px", transform: "rotate(40deg)",
-                    whiteSpace: "nowrap", pointerEvents: "none",
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                    marginBottom: 6,
                   }}>
-                    Granted
+                    <span style={{ fontSize: 11 }}>🌟</span>
+                    <span style={{
+                      fontFamily: fonts.body, fontSize: 9, color: "#C4A265",
+                      letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 500,
+                    }}>Wish Granted</span>
                   </div>
                 )}
-                {/* Dish name + star toggle */}
+                {/* Dish name */}
                 <div style={{
-                  display: "inline-flex", alignItems: "center", gap: 6,
+                  fontFamily: fonts.body, fontSize: 18, fontWeight: 400,
+                  color: colors.ink, letterSpacing: 2,
                 }}>
-                  <div style={{
-                    fontFamily: fonts.body, fontSize: 18, fontWeight: 400,
-                    color: colors.ink, letterSpacing: 2,
-                  }}>
-                    {r.dishName}
-                  </div>
-                  {canGrant && (
-                    <span
-                      onClick={() => handleGrant(r.dishName)}
-                      style={{
-                        fontSize: 16, cursor: "pointer",
-                        opacity: r.granted ? 1 : 0.3,
-                        filter: r.granted
-                          ? "grayscale(0) drop-shadow(0 0 3px rgba(212,169,106,0.35))"
-                          : "grayscale(1)",
-                        transition: "all 0.3s",
-                        userSelect: "none",
-                      }}
-                      title={r.granted ? "Ungrant wish" : "Grant wish"}
-                    >⭐</span>
-                  )}
+                  {r.dishName}
                 </div>
                 {/* Requester pills */}
                 {r.requestedBy && r.requestedBy.length > 0 && (
@@ -685,7 +665,7 @@ function RequestsTab({ userCode }) {
                     ))}
                   </div>
                 )}
-                {/* Delete button — Vivian only */}
+                {/* Admin controls — Vivian only */}
                 {userCode === "vivian" && (
                   confirmDelete === r.dishName ? (
                     <div style={{
@@ -713,10 +693,27 @@ function RequestsTab({ userCode }) {
                       >No</span>
                     </div>
                   ) : (
+                    <div style={{
+                      marginTop: 10, display: "flex", justifyContent: "center",
+                      alignItems: "center", gap: 12,
+                    }}>
+                      <span
+                        onClick={() => handleGrant(r.dishName)}
+                        style={{
+                          fontFamily: fonts.body, fontSize: 9, color: "#C4A265",
+                          cursor: "pointer", opacity: 0.5, transition: "opacity 0.2s",
+                          letterSpacing: 0.5,
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = 0.5}
+                      >
+                        {r.granted ? "☆ ungrant" : "★ grant"}
+                      </span>
+                      <span style={{ fontSize: 9, color: "rgba(232,152,171,0.3)" }}>·</span>
                     <div
                       onClick={() => setConfirmDelete(r.dishName)}
                       style={{
-                        marginTop: 10, fontFamily: fonts.body, fontSize: 9,
+                        fontFamily: fonts.body, fontSize: 9,
                         color: colors.inkLight, cursor: "pointer",
                         opacity: 0.4, transition: "opacity 0.2s",
                         letterSpacing: 0.5,
@@ -725,6 +722,7 @@ function RequestsTab({ userCode }) {
                       onMouseLeave={(e) => e.currentTarget.style.opacity = 0.4}
                     >
                       ✕ remove
+                    </div>
                     </div>
                   )
                 )}
