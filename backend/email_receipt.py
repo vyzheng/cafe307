@@ -8,10 +8,13 @@ Required env vars:
   CAFE307_EMAIL_ADDRESS  — Gmail address to send from
   CAFE307_EMAIL_PASSWORD — Gmail app password (not regular password)
 """
+import logging
 import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
+logger = logging.getLogger(__name__)
 
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 587
@@ -140,8 +143,10 @@ def send_receipt(
     Fails silently if email credentials aren't configured — payment still counts.
     """
     if not EMAIL_ADDRESS or not EMAIL_PASSWORD:
+        logger.warning("Receipt email skipped: CAFE307_EMAIL_ADDRESS or CAFE307_EMAIL_PASSWORD not set")
         return False
     if not to_email:
+        logger.warning("Receipt email skipped: no recipient email provided")
         return False
 
     try:
@@ -158,6 +163,8 @@ def send_receipt(
             server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
             server.send_message(msg)
 
+        logger.info(f"Receipt email sent to {to_email} for '{dish_name}'")
         return True
     except Exception:
+        logger.exception(f"Failed to send receipt email to {to_email}")
         return False

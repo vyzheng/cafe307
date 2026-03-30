@@ -204,7 +204,11 @@ def confirm_payment(
     db.commit()
 
     # Send branded Cafe 307 receipt (best-effort, non-blocking)
+    import logging
+    _log = logging.getLogger(__name__)
+    _log.info(f"Confirm: dish={dish_name}, user={user_code}, email={receipt_email}, custom={is_custom}")
     if receipt_email:
+        _log.info(f"Attempting receipt email to {receipt_email}")
         send_receipt(
             to_email=receipt_email,
             dish_name=dish_name,
