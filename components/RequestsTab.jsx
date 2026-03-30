@@ -88,7 +88,7 @@ function OrDivider() {
   Everything renders at once — no tab switching, no animation issues.
   Deferred intent: PaymentIntent created on Pay click (or pre-fetched).
 */
-function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSuccess, onCancel, amount, prefetchedSecret, successMsg }) {
+function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSuccess, onCancel, onMakeAnother, amount, prefetchedSecret, successMsg }) {
   const stripe = useStripe();
   const elements = useElements();
   const [paying, setPaying] = useState(false);
@@ -234,11 +234,23 @@ function PaymentForm({ dishName, customNote, isCustom, userCode, email, onSucces
 
         {/* Success message — right below Pay button */}
         {successMsg && (
-          <div style={{
-            textAlign: "center", marginTop: 10, fontFamily: fonts.body,
-            fontSize: 13, color: "#C4A265", fontStyle: "italic",
-          }}>
-            {successMsg}
+          <div style={{ textAlign: "center", marginTop: 10 }}>
+            <div style={{
+              fontFamily: fonts.body, fontSize: 13, color: "#C4A265", fontStyle: "italic",
+            }}>
+              {successMsg}
+            </div>
+            <button
+              type="button"
+              onClick={onMakeAnother}
+              style={{
+                marginTop: 12, background: "none", border: "none", cursor: "pointer",
+                fontFamily: fonts.body, fontSize: 12, color: "#9B8B7A",
+                textDecoration: "underline", padding: 0,
+              }}
+            >
+              Make another wish
+            </button>
           </div>
         )}
       </form>
@@ -400,14 +412,15 @@ function RequestsTab({ userCode }) {
       setSuccessMsg(`✨ Payment received — your wish will appear shortly.`);
     }
     fetchRequests();
-    setTimeout(() => {
-      setSuccessMsg(null);
-      setDishName("");
-      setCustomNote("");
-      setNudge(false);
-      setPaymentKey((k) => k + 1);
-      prefetchRef.current = { secret: null, isCustom: false, dishName: "", fetching: false };
-    }, 3000);
+  };
+
+  const handleMakeAnother = () => {
+    setSuccessMsg(null);
+    setDishName("");
+    setCustomNote("");
+    setNudge(false);
+    setPaymentKey((k) => k + 1);
+    prefetchRef.current = { secret: null, isCustom: false, dishName: "", fetching: false };
   };
 
   const handleCancel = () => {
@@ -565,6 +578,7 @@ function RequestsTab({ userCode }) {
                 email={email}
                 onSuccess={handlePaymentSuccess}
                 onCancel={handleCancel}
+                onMakeAnother={handleMakeAnother}
                 amount={hasMicromanage ? 200 : 100}
                 prefetchedSecret={prefetchRef.current.secret}
                 successMsg={successMsg}
